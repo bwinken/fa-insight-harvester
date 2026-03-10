@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -22,15 +22,17 @@ class VLMSlideResult(BaseModel):
     data: VLMExtractedData | None = None
 
 
-# --- API schemas ---
+# --- Slide processing result ---
 class SlideExtractionResult(BaseModel):
     slide_number: int
     image_path: str
     is_case_page: bool
+    skipped: bool = False  # True if pre-filter skipped this slide
     data: VLMExtractedData | None = None
     error: str | None = None
 
 
+# --- Upload ---
 class ReportUploadResponse(BaseModel):
     report_id: int
     filename: str
@@ -38,6 +40,7 @@ class ReportUploadResponse(BaseModel):
     slides: list[SlideExtractionResult]
 
 
+# --- Case CRUD ---
 class CaseEditRequest(BaseModel):
     date: str | None = None
     customer: str | None = None
@@ -71,13 +74,39 @@ class CaseResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# --- Report ---
 class ReportResponse(BaseModel):
     id: int
     filename: str
-    upload_date: datetime
-    report_date: datetime | None
     total_slides: int
     status: str
+    uploader_name: str = ""
+    created_at: datetime
     case_count: int = 0
 
     model_config = {"from_attributes": True}
+
+
+# --- Weekly Period ---
+class WeeklyPeriodResponse(BaseModel):
+    id: int
+    year: int
+    week_number: int
+    start_date: date
+    end_date: date
+    report_count: int = 0
+    case_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class WeeklyPeriodCreate(BaseModel):
+    year: int
+    week_number: int
+
+
+# --- Confirm save (review → DB) ---
+class ConfirmSaveRequest(BaseModel):
+    """Sent when user confirms reviewed cases for saving."""
+    cases: list[CaseEditRequest]
+    slide_numbers: list[int]
