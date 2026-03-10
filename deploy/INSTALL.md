@@ -3,6 +3,7 @@
 ## 系統需求
 
 - Python 3.12+
+- [uv](https://docs.astral.sh/uv/) (Python 套件管理)
 - PostgreSQL 16+ (含 pgvector 擴展)
 - LibreOffice (用於 PPTX 轉 PDF)
 - poppler-utils (用於 PDF 轉 PNG)
@@ -14,11 +15,13 @@
 # Ubuntu/Debian
 sudo apt update
 sudo apt install -y postgresql postgresql-contrib \
-    libreoffice-impress poppler-utils nginx \
-    python3.12 python3.12-venv
+    libreoffice-impress poppler-utils nginx
 
 # 安裝 pgvector 擴展
 sudo apt install -y postgresql-16-pgvector
+
+# 安裝 uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ## 2. 設定 PostgreSQL
@@ -40,10 +43,8 @@ cd /home/YOUR_USER
 git clone <repo-url> fa-insight-harvester
 cd fa-insight-harvester
 
-# 建立虛擬環境
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+# 用 uv 安裝依賴（自動建立 .venv）
+uv sync
 
 # 複製並編輯環境設定
 cp .env.example .env
@@ -56,7 +57,7 @@ cp /path/to/auth_public_key.pem ./auth_public_key.pem
 mkdir -p uploads/images
 
 # 執行資料庫遷移
-alembic upgrade head
+uv run alembic upgrade head
 ```
 
 ## 4. 設定 systemd 服務
@@ -119,8 +120,7 @@ systemctl --user restart fa-insight-harvester
 # 更新程式碼
 cd /home/YOUR_USER/fa-insight-harvester
 git pull
-source .venv/bin/activate
-pip install -r requirements.txt
-alembic upgrade head
+uv sync
+uv run alembic upgrade head
 systemctl --user restart fa-insight-harvester
 ```

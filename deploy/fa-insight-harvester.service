@@ -6,9 +6,8 @@ After=network.target postgresql.service
 Type=simple
 User=%i
 WorkingDirectory=/home/%i/fa-insight-harvester
-Environment=PATH=/home/%i/fa-insight-harvester/.venv/bin:/usr/local/bin:/usr/bin
 EnvironmentFile=/home/%i/fa-insight-harvester/.env
-ExecStart=/home/%i/fa-insight-harvester/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+ExecStart=/home/%i/.local/bin/uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=5
 
