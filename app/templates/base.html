@@ -3,27 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}FA Insight Harvester{% endblock %}</title>
+    <title>{% block title %}QVault{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     fontFamily: {
-                        sans: ['Outfit', 'system-ui', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
+                        sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
                     },
                     colors: {
-                        sidebar: { DEFAULT: '#0e0e1a', light: '#161629', accent: '#1e1e38' },
-                        accent: { DEFAULT: '#6366f1', light: '#818cf8', soft: '#a5b4fc', dim: 'rgba(99,102,241,0.10)' },
-                        teal: { DEFAULT: '#2dd4bf', light: '#5eead4', dim: 'rgba(45,212,191,0.10)' },
-                        surface: { DEFAULT: '#f0f1f5', card: '#ffffff', muted: '#e4e5eb', deep: '#d8d9e3' },
+                        accent: { DEFAULT: '#1a73e8', light: '#4285f4', soft: '#8ab4f8', dim: 'rgba(26,115,232,0.08)' },
+                        teal: { DEFAULT: '#1e8e3e', light: '#34a853', dim: 'rgba(30,142,62,0.08)' },
+                        surface: { DEFAULT: '#f8f9fa', card: '#ffffff', muted: '#dadce0', deep: '#e8eaed' },
                     },
                 },
             },
@@ -31,64 +30,32 @@
     </script>
     <style>
         [x-cloak] { display: none !important; }
-        body { font-family: 'Outfit', system-ui, sans-serif; }
-
-        /* ── Dot-grid background ── */
-        .bg-dotgrid {
-            background-image: radial-gradient(circle, #d1d5db 0.7px, transparent 0.7px);
-            background-size: 22px 22px;
-        }
-
-        /* ── Sidebar ── */
-        .sidebar-gradient {
-            background: linear-gradient(180deg, #0e0e1a 0%, #131328 50%, #181838 100%);
-        }
-        .sidebar-glow {
-            position: absolute;
-            top: 30%;
-            left: -40%;
-            width: 180%;
-            height: 50%;
-            background: radial-gradient(ellipse, rgba(99,102,241,0.07) 0%, transparent 70%);
-            pointer-events: none;
-        }
+        body { font-family: 'DM Sans', system-ui, sans-serif; }
 
         /* ── Navigation ── */
         .nav-link {
-            position: relative;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: background-color 0.15s ease;
         }
-        .nav-link::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%) scaleY(0);
-            width: 3px;
-            height: 55%;
-            border-radius: 0 3px 3px 0;
-            background: linear-gradient(180deg, #818cf8, #6366f1);
-            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .nav-link:hover { background: rgba(255,255,255,0.035); }
+        .nav-link:hover { background-color: #e8eaed; }
         .nav-link.active {
-            background: rgba(99,102,241,0.1);
-            color: #a5b4fc;
+            background-color: #c2e7ff;
+            color: #001d35;
+            font-weight: 600;
         }
-        .nav-link.active::before { transform: translateY(-50%) scaleY(1); }
 
         /* ── Cards ── */
         .card {
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid #e4e5eb;
+            transition: box-shadow 0.2s ease, border-color 0.15s ease;
+            border: 1px solid #dadce0;
+            border-radius: 8px;
         }
         .card:hover {
-            box-shadow: 0 8px 32px rgba(99,102,241,0.07), 0 2px 8px rgba(0,0,0,0.03);
-            border-color: rgba(99,102,241,0.18);
+            box-shadow: 0 1px 3px 0 rgba(60,64,67,.3), 0 4px 8px 3px rgba(60,64,67,.15);
+            border-color: transparent;
         }
 
         /* ── Staggered animation ── */
-        .stagger-in { animation: staggerFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+        .stagger-in { animation: staggerFadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) both; }
         .stagger-in:nth-child(1) { animation-delay: 0.02s; }
         .stagger-in:nth-child(2) { animation-delay: 0.06s; }
         .stagger-in:nth-child(3) { animation-delay: 0.10s; }
@@ -101,38 +68,38 @@
         .stagger-in:nth-child(10) { animation-delay: 0.38s; }
 
         @keyframes staggerFadeIn {
-            from { opacity: 0; transform: translateY(14px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .fade-in {
-            animation: pageFadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
-        }
-        @keyframes pageFadeIn {
             from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
+        .fade-in {
+            animation: pageFadeIn 0.3s ease both;
+        }
+        @keyframes pageFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
         /* ── Scrollbar ── */
-        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #c7c8d0; border-radius: 8px; }
-        ::-webkit-scrollbar-thumb:hover { background: #a5a6b2; }
+        ::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #bdc1c6; }
 
         /* ── Glow dot ── */
         .glow-dot { box-shadow: 0 0 5px currentColor, 0 0 10px currentColor; }
 
         /* ── Input field ── */
         .input-field {
-            transition: all 0.2s ease;
-            border: 1px solid #e4e5eb;
-            background: #f8f8fb;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            background: #fff;
         }
         .input-field:focus {
-            border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 2px rgba(26,115,232,0.2);
             outline: none;
-            background: #fff;
         }
 
         /* ── Badge ── */
@@ -145,15 +112,13 @@
             border-radius: 9999px;
         }
 
-        /* ── Noise texture ── */
-        .noise-overlay::after {
-            content: '';
-            position: fixed;
-            inset: 0;
-            opacity: 0.018;
-            pointer-events: none;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-            z-index: 50;
+        /* ── Google Drive "New" button ── */
+        .btn-new {
+            box-shadow: 0 1px 2px 0 rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15);
+            transition: box-shadow 0.2s ease;
+        }
+        .btn-new:hover {
+            box-shadow: 0 1px 3px 0 rgba(60,64,67,.3), 0 4px 8px 3px rgba(60,64,67,.15);
         }
 
         /* ── Data value mono ── */
@@ -164,53 +129,61 @@
     </style>
     {% block head %}{% endblock %}
 </head>
-<body class="bg-surface bg-dotgrid min-h-screen flex noise-overlay">
+<body class="bg-[#f8f9fa] min-h-screen flex">
     <!-- ═══ Sidebar ═══ -->
-    <aside class="w-[232px] sidebar-gradient text-white flex flex-col fixed h-full z-30 overflow-hidden">
-        <div class="sidebar-glow"></div>
-
+    <aside class="w-[256px] bg-white flex flex-col fixed h-full z-30 border-r border-[#dadce0]">
         <!-- Logo -->
-        <div class="relative px-5 py-5 flex items-center gap-3 border-b border-white/[0.06]">
-            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-accent to-accent-light flex items-center justify-center shadow-lg shadow-accent/25">
-                <span class="material-icons-outlined text-white text-[18px]">insights</span>
+        <div class="px-5 py-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-accent flex items-center justify-center shadow-sm">
+                <span class="text-white text-[18px] font-bold font-mono">Q</span>
             </div>
             <div>
-                <div class="text-[15px] font-semibold tracking-tight leading-none">FA Insight</div>
-                <div class="text-[10px] text-white/25 font-mono font-medium tracking-[0.18em] uppercase mt-1">Harvester</div>
+                <div class="text-[16px] font-bold text-[#1f1f1f] tracking-tight leading-tight">QVault</div>
+                <div class="text-[10px] text-[#5f6368] font-medium tracking-wider uppercase font-mono">FA Cases</div>
             </div>
         </div>
 
+        <!-- Upload button (Google Drive "New" style) -->
+        {% if "write" in scopes|default([]) %}
+        <div class="px-3 pt-2 pb-4">
+            <a href="/upload" class="btn-new inline-flex items-center gap-3 px-6 py-3 bg-white rounded-2xl">
+                <span class="material-icons-outlined text-[24px] text-accent">add</span>
+                <span class="text-[14px] font-medium text-[#3c4043]">上傳周報</span>
+            </a>
+        </div>
+        {% endif %}
+
         <!-- Navigation -->
-        <nav class="relative flex-1 px-3 py-5 space-y-0.5">
-            <a href="/" class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-lg text-[13px] text-white/45 hover:text-white/90 font-medium
+        <nav class="flex-1 py-1 space-y-0.5">
+            <a href="/" class="nav-link flex items-center gap-3 mx-3 px-3 py-[6px] rounded-full text-[14px] font-medium text-[#444746]
                 {% if request.url.path == '/' %}active{% endif %}">
-                <span class="material-icons-outlined text-[18px]">space_dashboard</span>
-                <span>首頁總覽</span>
+                <span class="material-icons-outlined text-[20px]">home</span>
+                <span>首頁</span>
             </a>
-            <a href="/upload" class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-lg text-[13px] text-white/45 hover:text-white/90 font-medium
-                {% if request.url.path == '/upload' %}active{% endif %}">
-                <span class="material-icons-outlined text-[18px]">cloud_upload</span>
-                <span>上傳周報</span>
+            <a href="/weeks" class="nav-link flex items-center gap-3 mx-3 px-3 py-[6px] rounded-full text-[14px] font-medium text-[#444746]
+                {% if request.url.path.startswith('/weeks') %}active{% endif %}">
+                <span class="material-icons-outlined text-[20px]">folder</span>
+                <span>週報總覽</span>
             </a>
-            <a href="/cases" class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-lg text-[13px] text-white/45 hover:text-white/90 font-medium
+            <a href="/cases" class="nav-link flex items-center gap-3 mx-3 px-3 py-[6px] rounded-full text-[14px] font-medium text-[#444746]
                 {% if request.url.path.startswith('/cases') %}active{% endif %}">
-                <span class="material-icons-outlined text-[18px]">manage_search</span>
-                <span>案例搜尋</span>
+                <span class="material-icons-outlined text-[20px]">table_chart</span>
+                <span>案例管理</span>
             </a>
         </nav>
 
         <!-- User -->
-        <div class="relative px-4 py-4 border-t border-white/[0.06]">
+        <div class="px-4 py-3 border-t border-[#e8eaed]">
             {% if user %}
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2.5">
-                    <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-accent/40 to-accent-light/25 flex items-center justify-center ring-1 ring-white/[0.08]">
-                        <span class="text-[11px] font-semibold text-accent-soft">{{ user.sub[:1]|upper }}</span>
+                    <div class="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
+                        <span class="text-[13px] font-semibold text-white">{{ user.sub[:1]|upper }}</span>
                     </div>
-                    <span class="text-[12px] text-white/35 font-medium">{{ user.sub }}</span>
+                    <span class="text-[13px] text-[#5f6368] font-medium">{{ user.sub }}</span>
                 </div>
-                <a href="/auth/logout" class="text-white/15 hover:text-red-400 transition-colors duration-200" title="登出">
-                    <span class="material-icons-outlined text-[18px]">logout</span>
+                <a href="/auth/logout" class="text-[#5f6368] hover:text-red-500 transition-colors duration-200" title="登出">
+                    <span class="material-icons-outlined text-[20px]">logout</span>
                 </a>
             </div>
             {% endif %}
@@ -218,8 +191,8 @@
     </aside>
 
     <!-- ═══ Main content ═══ -->
-    <main class="ml-[232px] flex-1 min-h-screen">
-        <div class="max-w-[1080px] mx-auto px-10 py-10 fade-in">
+    <main class="ml-[256px] flex-1 min-h-screen">
+        <div class="{% block content_width %}max-w-[1080px]{% endblock %} mx-auto px-10 py-8 fade-in">
             {% block content %}{% endblock %}
         </div>
     </main>

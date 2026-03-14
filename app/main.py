@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.config import settings
 from app.core.logging_config import setup_logging
-from app.routers import auth, cases, pages, upload
+from app.routers import auth, cases, pages, triage, upload
 
 setup_logging()
 
@@ -65,6 +65,7 @@ app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 # Routers
 app.include_router(auth.router)
 app.include_router(upload.router)
+app.include_router(triage.router)
 app.include_router(cases.router)
 app.include_router(pages.router)
 

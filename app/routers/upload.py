@@ -11,17 +11,18 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
-from app.core.auth import get_current_user_payload, get_or_create_user
+from app.core.auth import get_or_create_user, require_scope
 from app.core.config import settings
 from app.models.database import get_db
-from app.models.fa_case import FAReport, FAWeeklyPeriod
-from app.services.data_cleaner import clean_extracted_data
+from app.models.fa_case import FAReport, FAReportSlide, FAWeeklyPeriod
 from app.services.pptx_parser import (
     convert_pptx_to_images,
     extract_slide_texts,
     pre_filter_slides,
 )
-from app.services.vlm_extractor import extract_slides_batch
+from app.services.audit import log_action
+from app.services.vlm_extractor import classify_slides_batch
+
 router = APIRouter(prefix="/api", tags=["upload"])
 
 # In-memory store for processing progress (report_id → progress events)
@@ -38,7 +39,7 @@ async def upload_report(
     overwrite: bool = False,
 ):
     """Upload a PPTX weekly report and start processing."""
-    payload = get_current_user_payload(request)
+    payload = require_scope(request, "write")
     user = await get_or_create_user(db, payload)
 
     if not file.filename or not file.filename.endswith(".pptx"):
@@ -55,6 +56,7 @@ async def upload_report(
     if period is None:
         # Calculate week start/end dates (ISO week)
         import datetime
+
         start = datetime.date.fromisocalendar(year, week_number, 1)
         end = datetime.date.fromisocalendar(year, week_number, 7)
         period = FAWeeklyPeriod(
@@ -102,6 +104,21 @@ async def upload_report(
     await db.commit()
     await db.refresh(report)
 
+    await log_action(
+        db,
+        user_id=user.id,
+        action="upload",
+        target_type="report",
+        target_id=report.id,
+        detail={
+            "filename": file.filename,
+            "year": year,
+            "week": week_number,
+            "overwrite": overwrite,
+        },
+    )
+    await db.commit()
+
     # Save uploaded file
     report_dir = settings.images_path / str(report.id)
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -115,7 +132,9 @@ async def upload_report(
     _progress_store[report.id] = queue
 
     # Start background processing
-    asyncio.create_task(_process_report(request.app, report.id, pptx_path, report_dir, queue))
+    asyncio.create_task(
+        _process_report(request.app, report.id, pptx_path, report_dir, queue)
+    )
 
     return {"report_id": report.id, "status": "processing"}
 
@@ -125,7 +144,9 @@ async def progress_stream(report_id: int):
     """SSE endpoint for processing progress."""
     queue = _progress_store.get(report_id)
     if queue is None:
-        raise HTTPException(status_code=404, detail="No active processing for this report")
+        raise HTTPException(
+            status_code=404, detail="No active processing for this report"
+        )
 
     async def event_generator():
         while True:
@@ -145,11 +166,9 @@ async def get_processing_results(
     db: AsyncSession = Depends(get_db),
 ):
     """Get the extraction results for review (before saving to DB)."""
-    get_current_user_payload(request)
+    require_scope(request, "read")
 
-    result = await db.execute(
-        select(FAReport).where(FAReport.id == report_id)
-    )
+    result = await db.execute(select(FAReport).where(FAReport.id == report_id))
     report = result.scalar_one_or_none()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
@@ -177,150 +196,147 @@ async def _process_report(
     output_dir: Path,
     queue: asyncio.Queue,
 ):
-    """Background task: parse PPTX → pre-filter → VLM extract → save results."""
+    """Background task: parse PPTX → pre-filter → Stage 1 VLM classify → triage."""
     try:
         async with app.state.db_session() as db:
             # Step 1: Extract text for pre-filtering
-            await queue.put({"type": "status", "data": {"message": "正在解析投影片文字..."}})
+            await queue.put(
+                {"type": "status", "data": {"message": "正在解析投影片文字..."}}
+            )
             slide_texts = extract_slide_texts(pptx_path)
             total_slides = len(slide_texts)
 
             # Update report with total slides
-            result = await db.execute(
-                select(FAReport).where(FAReport.id == report_id)
-            )
+            result = await db.execute(select(FAReport).where(FAReport.id == report_id))
             report = result.scalar_one()
             report.total_slides = total_slides
             await db.commit()
 
             # Step 2: Convert to images
-            await queue.put({"type": "status", "data": {"message": "正在轉換投影片為圖片..."}})
+            await queue.put(
+                {"type": "status", "data": {"message": "正在轉換投影片為圖片..."}}
+            )
             images = await convert_pptx_to_images(pptx_path, output_dir)
 
             # Step 3: Pre-filter
-            await queue.put({"type": "status", "data": {"message": "正在預篩選候選案例頁..."}})
+            await queue.put(
+                {"type": "status", "data": {"message": "正在預篩選候選案例頁..."}}
+            )
             is_candidate = pre_filter_slides(slide_texts)
             candidate_indices = [i for i, c in enumerate(is_candidate) if c]
             candidate_images = [images[i] for i in candidate_indices if i < len(images)]
             candidate_numbers = [i + 1 for i in candidate_indices]  # 1-based
 
-            await queue.put({
-                "type": "prefilter",
-                "data": {
-                    "total_slides": total_slides,
-                    "candidate_count": len(candidate_indices),
-                    "candidate_slides": candidate_numbers,
-                },
-            })
-
-            # Step 4: VLM extraction on candidate pages
-            async def on_vlm_progress(completed, total, slide_num):
-                await queue.put({
-                    "type": "vlm_progress",
+            await queue.put(
+                {
+                    "type": "prefilter",
                     "data": {
-                        "completed": completed,
-                        "total": total,
-                        "current_slide": slide_num,
+                        "total_slides": total_slides,
+                        "candidate_count": len(candidate_indices),
+                        "candidate_slides": candidate_numbers,
                     },
-                })
+                }
+            )
+
+            # Step 4: Stage 1 — VLM classification on candidate pages
+            async def on_classify_progress(completed, total, slide_num):
+                await queue.put(
+                    {
+                        "type": "classify_progress",
+                        "data": {
+                            "completed": completed,
+                            "total": total,
+                            "current_slide": slide_num,
+                        },
+                    }
+                )
 
             if candidate_images:
-                vlm_results = await extract_slides_batch(
-                    app.state.vlm_client, candidate_images, candidate_numbers, on_progress=on_vlm_progress
+                classify_results = await classify_slides_batch(
+                    app.state.vlm_client,
+                    candidate_images,
+                    candidate_numbers,
+                    on_progress=on_classify_progress,
                 )
             else:
-                vlm_results = []
+                classify_results = []
 
-            # Step 5: Clean data and build results
-            all_slides = []
+            # Step 5: Persist per-slide records to DB
+            case_count = 0
+            not_case_count = 0
+            error_count = 0
+
             for i in range(total_slides):
                 slide_num = i + 1
                 image_path = str(images[i]) if i < len(images) else ""
-                relative_path = str(Path(image_path).relative_to(settings.upload_dir)) if image_path else ""
+                relative_path = (
+                    str(Path(image_path).relative_to(settings.upload_dir))
+                    if image_path
+                    else ""
+                )
+
+                slide_rec = FAReportSlide(
+                    report_id=report_id,
+                    slide_number=slide_num,
+                    image_path=relative_path,
+                    is_candidate=is_candidate[i],
+                )
 
                 if not is_candidate[i]:
-                    all_slides.append({
-                        "slide_number": slide_num,
-                        "image_path": relative_path,
-                        "is_case_page": False,
-                        "skipped": True,
-                        "data": None,
-                        "error": None,
-                    })
-                    continue
-
-                # Find VLM result for this slide
-                vlm_match = next(
-                    (r for r in vlm_results if r[0] == slide_num), None
-                )
-                if vlm_match is None:
-                    all_slides.append({
-                        "slide_number": slide_num,
-                        "image_path": relative_path,
-                        "is_case_page": False,
-                        "skipped": False,
-                        "data": None,
-                        "error": "No VLM result",
-                    })
-                    continue
-
-                _, vlm_result, raw_response, error = vlm_match
-                if error:
-                    all_slides.append({
-                        "slide_number": slide_num,
-                        "image_path": relative_path,
-                        "is_case_page": False,
-                        "skipped": False,
-                        "data": None,
-                        "error": error,
-                        "raw_vlm_response": raw_response,
-                    })
-                elif vlm_result and vlm_result.is_case_page and vlm_result.data:
-                    cleaned = clean_extracted_data(vlm_result.data)
-                    all_slides.append({
-                        "slide_number": slide_num,
-                        "image_path": relative_path,
-                        "is_case_page": True,
-                        "skipped": False,
-                        "data": cleaned,
-                        "error": None,
-                        "raw_vlm_response": raw_response,
-                    })
+                    # Skipped by pre-filter
+                    slide_rec.classification_status = "pending"
                 else:
-                    all_slides.append({
-                        "slide_number": slide_num,
-                        "image_path": relative_path,
-                        "is_case_page": False,
-                        "skipped": False,
-                        "data": None,
-                        "error": None,
-                        "raw_vlm_response": raw_response,
-                    })
+                    # Find classification result
+                    cls_match = next(
+                        (r for r in classify_results if r[0] == slide_num), None
+                    )
+                    if cls_match is None:
+                        slide_rec.classification_status = "error"
+                        error_count += 1
+                    else:
+                        _, cls_result, raw_json, error = cls_match
+                        slide_rec.vlm_raw_classification = raw_json
+                        if error:
+                            slide_rec.classification_status = "error"
+                            error_count += 1
+                        elif cls_result and cls_result.is_case_page:
+                            slide_rec.classification_status = "case"
+                            slide_rec.classification_confidence = cls_result.confidence
+                            case_count += 1
+                        else:
+                            slide_rec.classification_status = "not_case"
+                            slide_rec.classification_confidence = (
+                                cls_result.confidence if cls_result else None
+                            )
+                            not_case_count += 1
 
-            # Save results to temp file for review
-            results_path = output_dir / "extraction_results.json"
-            with open(results_path, "w") as f:
-                json.dump(all_slides, f, ensure_ascii=False, indent=2)
+                db.add(slide_rec)
 
-            # Update report status to review
-            report.status = "review"
+            # Update report status to triage
+            report.status = "triage"
             await db.commit()
 
-            await queue.put({
-                "type": "complete",
-                "data": {
-                    "report_id": report_id,
-                    "total_slides": total_slides,
-                    "case_pages": sum(1 for s in all_slides if s["is_case_page"]),
-                },
-            })
+            await queue.put(
+                {
+                    "type": "complete",
+                    "data": {
+                        "report_id": report_id,
+                        "total_slides": total_slides,
+                        "case_count": case_count,
+                        "not_case_count": not_case_count,
+                        "error_count": error_count,
+                    },
+                }
+            )
 
     except Exception as e:
         logger.exception("Processing failed for report {}", report_id)
-        await queue.put({
-            "type": "error",
-            "data": {"message": f"處理失敗: {str(e)}"},
-        })
+        await queue.put(
+            {
+                "type": "error",
+                "data": {"message": f"處理失敗: {str(e)}"},
+            }
+        )
         # Update report status
         try:
             async with app.state.db_session() as db:

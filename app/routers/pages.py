@@ -1,5 +1,6 @@
 """Jinja2 page rendering routes."""
 
+import json
 from pathlib import Path
 
 from loguru import logger
@@ -10,15 +11,17 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user_payload, verify_token
+from app.core.auth import verify_token
 from app.core.config import settings
 from app.models.database import get_db
-from app.models.fa_case import FACase, FAReport, FAUser, FAWeeklyPeriod
+from app.models.fa_case import FACase, FAReport, FAReportSlide, FAUser, FAWeeklyPeriod
 
 router = APIRouter(tags=["pages"])
-templates = Jinja2Templates(directory=Path(__file__).resolve().parent.parent / "templates")
+templates = Jinja2Templates(
+    directory=Path(__file__).resolve().parent.parent / "templates"
+)
 
-_DEV_USER = {"sub": "dev", "org_id": "dev"}
+_DEV_USER = {"sub": "dev", "org_id": "dev", "scopes": ["read", "write", "admin"]}
 
 
 def _get_user_or_redirect(request: Request) -> dict | None:
@@ -35,12 +38,27 @@ def _get_user_or_redirect(request: Request) -> dict | None:
 
 
 @router.get("/", response_class=HTMLResponse)
-async def home_page(request: Request, db: AsyncSession = Depends(get_db)):
+async def home_page(request: Request):
     user = _get_user_or_redirect(request)
     if not user:
         return RedirectResponse(url="/auth/login")
 
-    # Get weekly periods with counts
+    return templates.TemplateResponse(
+        "home.html",
+        {
+            "request": request,
+            "user": user,
+            "scopes": user.get("scopes", []),
+        },
+    )
+
+
+@router.get("/weeks", response_class=HTMLResponse)
+async def weeks_list_page(request: Request, db: AsyncSession = Depends(get_db)):
+    user = _get_user_or_redirect(request)
+    if not user:
+        return RedirectResponse(url="/auth/login")
+
     weeks: list = []
     try:
         result = await db.execute(
@@ -66,11 +84,15 @@ async def home_page(request: Request, db: AsyncSession = Depends(get_db)):
     except Exception:
         logger.warning("DB unavailable, showing empty data")
 
-    return templates.TemplateResponse("home.html", {
-        "request": request,
-        "user": user,
-        "weeks": weeks,
-    })
+    return templates.TemplateResponse(
+        "weeks_list.html",
+        {
+            "request": request,
+            "user": user,
+            "scopes": user.get("scopes", []),
+            "weeks": weeks,
+        },
+    )
 
 
 @router.get("/upload", response_class=HTMLResponse)
@@ -78,11 +100,68 @@ async def upload_page(request: Request):
     user = _get_user_or_redirect(request)
     if not user:
         return RedirectResponse(url="/auth/login")
+    if "write" not in user.get("scopes", []):
+        return RedirectResponse(url="/")
 
-    return templates.TemplateResponse("upload.html", {
-        "request": request,
-        "user": user,
-    })
+    return templates.TemplateResponse(
+        "upload.html",
+        {
+            "request": request,
+            "user": user,
+            "scopes": user.get("scopes", []),
+        },
+    )
+
+
+@router.get("/reports/{report_id}/triage", response_class=HTMLResponse)
+async def triage_page(
+    report_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    user = _get_user_or_redirect(request)
+    if not user:
+        return RedirectResponse(url="/auth/login")
+
+    result = await db.execute(select(FAReport).where(FAReport.id == report_id))
+    report = result.scalar_one_or_none()
+    if not report:
+        return RedirectResponse(url="/")
+
+    slides_result = await db.execute(
+        select(FAReportSlide)
+        .where(FAReportSlide.report_id == report_id)
+        .order_by(FAReportSlide.slide_number)
+    )
+    slides = slides_result.scalars().all()
+
+    # Serialize slides data for JavaScript
+    slides_json = json.dumps(
+        [
+            {
+                "id": s.id,
+                "slide_number": s.slide_number,
+                "image_path": s.image_path,
+                "is_candidate": s.is_candidate,
+                "classification_status": s.classification_status,
+                "classification_confidence": s.classification_confidence,
+                "is_case_page": s.is_case_page,
+            }
+            for s in slides
+        ],
+        ensure_ascii=False,
+    )
+
+    return templates.TemplateResponse(
+        "triage.html",
+        {
+            "request": request,
+            "user": user,
+            "scopes": user.get("scopes", []),
+            "report": report,
+            "slides_json": slides_json,
+        },
+    )
 
 
 @router.get("/reports/{report_id}/review", response_class=HTMLResponse)
@@ -95,18 +174,54 @@ async def review_page(
     if not user:
         return RedirectResponse(url="/auth/login")
 
-    result = await db.execute(
-        select(FAReport).where(FAReport.id == report_id)
-    )
+    result = await db.execute(select(FAReport).where(FAReport.id == report_id))
     report = result.scalar_one_or_none()
     if not report:
         return RedirectResponse(url="/")
 
-    return templates.TemplateResponse("review.html", {
-        "request": request,
-        "user": user,
-        "report": report,
-    })
+    return templates.TemplateResponse(
+        "review.html",
+        {
+            "request": request,
+            "user": user,
+            "scopes": user.get("scopes", []),
+            "report": report,
+        },
+    )
+
+
+@router.get("/reports/{report_id}/slides", response_class=HTMLResponse)
+async def report_slides_page(
+    report_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    user = _get_user_or_redirect(request)
+    if not user:
+        return RedirectResponse(url="/auth/login")
+
+    result = await db.execute(select(FAReport).where(FAReport.id == report_id))
+    report = result.scalar_one_or_none()
+    if not report:
+        return RedirectResponse(url="/")
+
+    slides_result = await db.execute(
+        select(FAReportSlide)
+        .where(FAReportSlide.report_id == report_id)
+        .order_by(FAReportSlide.slide_number)
+    )
+    slides = slides_result.scalars().all()
+
+    return templates.TemplateResponse(
+        "report_slides.html",
+        {
+            "request": request,
+            "user": user,
+            "scopes": user.get("scopes", []),
+            "report": report,
+            "slides": slides,
+        },
+    )
 
 
 @router.get("/cases", response_class=HTMLResponse)
@@ -115,10 +230,14 @@ async def cases_page(request: Request):
     if not user:
         return RedirectResponse(url="/auth/login")
 
-    return templates.TemplateResponse("case_list.html", {
-        "request": request,
-        "user": user,
-    })
+    return templates.TemplateResponse(
+        "case_list.html",
+        {
+            "request": request,
+            "user": user,
+            "scopes": user.get("scopes", []),
+        },
+    )
 
 
 @router.get("/cases/{case_id}", response_class=HTMLResponse)
@@ -131,18 +250,20 @@ async def case_detail_page(
     if not user:
         return RedirectResponse(url="/auth/login")
 
-    result = await db.execute(
-        select(FACase).where(FACase.id == case_id)
-    )
+    result = await db.execute(select(FACase).where(FACase.id == case_id))
     case = result.scalar_one_or_none()
     if not case:
         return RedirectResponse(url="/cases")
 
-    return templates.TemplateResponse("case_detail.html", {
-        "request": request,
-        "user": user,
-        "case": case,
-    })
+    return templates.TemplateResponse(
+        "case_detail.html",
+        {
+            "request": request,
+            "user": user,
+            "scopes": user.get("scopes", []),
+            "case": case,
+        },
+    )
 
 
 @router.get("/weeks/{period_id}", response_class=HTMLResponse)
@@ -170,13 +291,16 @@ async def week_detail_page(
         .order_by(FAReport.created_at.desc())
     )
     reports = [
-        {"report": row[0], "uploader_name": row[1]}
-        for row in reports_result.all()
+        {"report": row[0], "uploader_name": row[1]} for row in reports_result.all()
     ]
 
-    return templates.TemplateResponse("week_detail.html", {
-        "request": request,
-        "user": user,
-        "period": period,
-        "reports": reports,
-    })
+    return templates.TemplateResponse(
+        "week_detail.html",
+        {
+            "request": request,
+            "user": user,
+            "scopes": user.get("scopes", []),
+            "period": period,
+            "reports": reports,
+        },
+    )

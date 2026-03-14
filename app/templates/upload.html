@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}上傳周報 — FA Insight Harvester{% endblock %}
+{% block title %}上傳周報 — QVault{% endblock %}
 
 {% block content %}
 <!-- Header -->
@@ -185,11 +185,11 @@
             addMessage(messages, `預篩選完成: ${data.total_slides} 頁中有 ${data.candidate_count} 頁為候選案例頁`, 'teal');
         });
 
-        evtSource.addEventListener('vlm_progress', (e) => {
+        evtSource.addEventListener('classify_progress', (e) => {
             const data = JSON.parse(e.data);
             const pct = Math.round((data.completed / data.total) * 100);
             progressBar.style.width = pct + '%';
-            progressText.textContent = `VLM 提取中 ${data.completed}/${data.total} 頁...`;
+            progressText.textContent = `VLM 分類中 ${data.completed}/${data.total} 頁...`;
         });
 
         evtSource.addEventListener('complete', (e) => {
@@ -197,8 +197,8 @@
             evtSource.close();
             progressBar.style.width = '100%';
             progressBar.className = progressBar.className.replace('from-accent to-accent-light', 'from-teal to-teal-light');
-            addMessage(messages, `處理完成！共 ${data.case_pages} 個案例頁。`, 'teal');
-            setTimeout(() => { window.location.href = `/reports/${data.report_id}/review`; }, 1500);
+            addMessage(messages, `分類完成！${data.case_count} 案例 · ${data.not_case_count} 非案例 · ${data.error_count} 錯誤`, 'teal');
+            setTimeout(() => { window.location.href = `/reports/${data.report_id}/triage`; }, 1500);
         });
 
         evtSource.addEventListener('error', (e) => {

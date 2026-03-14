@@ -1,9 +1,14 @@
 {% extends "base.html" %}
-{% block title %}審核周報 — FA Insight Harvester{% endblock %}
+{% block title %}審核周報 — QVault{% endblock %}
 
 {% block content %}
+<!-- Breadcrumb -->
+<a href="/weeks/{{ report.weekly_period_id }}" class="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-accent transition-colors duration-200 mb-3 font-medium group">
+    <span class="material-icons-outlined text-[14px] group-hover:-translate-x-0.5 transition-transform">arrow_back</span>返回周報
+</a>
+
 <!-- Header -->
-<div class="flex items-center justify-between mb-8">
+<div class="flex items-center justify-between mb-6">
     <div>
         <h1 class="text-[26px] font-bold text-gray-900 tracking-tight">審核提取結果</h1>
         <div class="flex items-center gap-2 mt-1.5">
@@ -11,13 +16,38 @@
             <p class="text-[13px] text-gray-400 font-mono font-medium">{{ report.filename }}</p>
         </div>
     </div>
-    <button id="saveAllBtn" onclick="confirmSave()"
-        class="inline-flex items-center gap-2 bg-gradient-to-r from-teal to-teal-light text-white px-6 py-2.5 rounded-xl text-[13px] font-semibold hover:shadow-lg hover:shadow-teal/20 transition-all duration-300 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 disabled:shadow-none hover:-translate-y-0.5 disabled:translate-y-0">
-        <span class="material-icons-outlined text-[18px]">check_circle</span>
-        確認儲存所有案例
-    </button>
+    <div class="flex items-center gap-3">
+        <span id="caseCounter" class="text-[12px] font-mono text-gray-400"></span>
+        {% if "write" in scopes|default([]) %}
+        <button id="saveAllBtn" onclick="confirmSave()"
+            class="inline-flex items-center gap-2 bg-gradient-to-r from-teal to-teal-light text-white px-6 py-2.5 rounded-xl text-[13px] font-semibold hover:shadow-lg hover:shadow-teal/20 transition-all duration-300 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 disabled:shadow-none hover:-translate-y-0.5 disabled:translate-y-0">
+            <span class="material-icons-outlined text-[18px]">check_circle</span>
+            確認儲存所有案例
+        </button>
+        {% else %}
+        <span class="inline-flex items-center gap-2 px-4 py-2 text-[12px] text-gray-400 font-medium">
+            <span class="material-icons-outlined text-[16px]">visibility</span>唯讀模式
+        </span>
+        {% endif %}
+    </div>
 </div>
 
+<!-- Progress bar -->
+<div id="progressRow" class="hidden mb-5">
+    <div class="flex items-center gap-3">
+        <div class="flex-1 bg-surface rounded-full h-1.5 overflow-hidden">
+            <div id="reviewProgress" class="bg-gradient-to-r from-teal to-teal-light h-1.5 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+        </div>
+        <span id="reviewProgressText" class="text-[11px] font-mono text-gray-400 shrink-0"></span>
+    </div>
+</div>
+
+<!-- Overview grid -->
+<div id="overviewGrid" class="hidden mb-6">
+    <div class="flex flex-wrap gap-2" id="gridContainer"></div>
+</div>
+
+<!-- Loading -->
 <div id="loading" class="flex flex-col items-center py-28">
     <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-accent/8 to-accent/[0.02] flex items-center justify-center mb-4 border border-accent/[0.06]">
         <span class="material-icons-outlined text-accent text-[24px] animate-spin" style="animation-duration: 2s;">hourglass_top</span>
@@ -25,13 +55,82 @@
     <p class="text-[13px] text-gray-400 font-medium">載入提取結果中...</p>
 </div>
 
-<div id="slidesContainer" class="hidden space-y-4"></div>
+<!-- Detail panel -->
+<div id="detailPanel" class="hidden">
+    <div class="card bg-surface-card rounded-2xl p-6">
+        <!-- Detail header with nav -->
+        <div class="flex items-center justify-between mb-5">
+            <div class="flex items-center gap-3">
+                <div id="detailStatus"></div>
+                <span id="detailError" class="hidden inline-flex items-center gap-1 text-[10px] text-red-400 font-mono bg-red-50 px-2 py-0.5 rounded-md">
+                    <span class="material-icons-outlined text-[12px]">error</span><span id="detailErrorText"></span>
+                </span>
+            </div>
+            <div class="flex items-center gap-2">
+                {% if "write" in scopes|default([]) %}
+                <button id="confirmBtn" onclick="toggleConfirmed()"
+                    class="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-all duration-200">
+                </button>
+                {% endif %}
+                <button onclick="navigate(-1)" id="prevBtn"
+                    class="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-accent font-medium px-3 py-1.5 rounded-lg hover:bg-accent/5 transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400">
+                    <span class="material-icons-outlined text-[16px]">chevron_left</span>上一頁
+                </button>
+                <span id="navCounter" class="text-[11px] font-mono text-gray-300 px-1"></span>
+                <button onclick="navigate(1)" id="nextBtn"
+                    class="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-accent font-medium px-3 py-1.5 rounded-lg hover:bg-accent/5 transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400">
+                    下一頁<span class="material-icons-outlined text-[16px]">chevron_right</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Detail content: image + fields -->
+        <div class="flex gap-6">
+            <div class="w-80 shrink-0">
+                <div class="relative overflow-hidden rounded-xl group/img">
+                    <img id="detailImage" src="" alt=""
+                        class="w-full rounded-xl border border-surface-muted cursor-pointer transition-transform duration-300 group-hover/img:scale-[1.02]"
+                        onclick="window.open(this.src, '_blank')">
+                </div>
+                <p id="detailSlideLabel" class="text-[10px] text-gray-300 mt-2 text-center font-mono font-medium"></p>
+            </div>
+            <div class="flex-1" id="detailFields"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Keyboard hint -->
+<div id="keyHint" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800/90 text-white text-[11px] font-mono px-4 py-2 rounded-xl shadow-lg flex items-center gap-4 backdrop-blur-sm">
+    <span class="flex items-center gap-1"><kbd class="bg-gray-700 px-1.5 py-0.5 rounded text-[10px]">←</kbd><kbd class="bg-gray-700 px-1.5 py-0.5 rounded text-[10px]">→</kbd> 切換</span>
+    <span class="flex items-center gap-1"><kbd class="bg-gray-700 px-1.5 py-0.5 rounded text-[10px]">Space</kbd> 確認</span>
+    <button onclick="document.getElementById('keyHint').remove()" class="text-gray-400 hover:text-white ml-2">
+        <span class="material-icons-outlined text-[14px]">close</span>
+    </button>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
     const reportId = {{ report.id }};
+    const hasWriteScope = {{ "true" if "write" in scopes|default([]) else "false" }};
     let extractionResults = [];
+    let currentIndex = 0;
+    // Track confirmed and user-edited state per slide
+    const confirmedSet = new Set();
+    const editedFields = {};  // slideNumber → { field: value }
+
+    const FIELD_DEFS = [
+        ['date', 'Date', 'event'],
+        ['customer', 'Customer', 'business'],
+        ['device', 'Device', 'memory'],
+        ['model', 'Model', 'label'],
+        ['defect_mode', 'Defect Mode', 'report_problem'],
+        ['defect_rate_raw', 'Defect Rate', 'percent'],
+        ['defect_lots', 'Defect Lots', 'inventory'],
+        ['fab_assembly', 'FAB/Assembly', 'factory'],
+        ['fa_status', 'FA Status', 'flag'],
+        ['follow_up', 'Follow Up', 'update'],
+    ];
 
     async function loadResults() {
         try {
@@ -43,129 +142,186 @@
             }
             const data = await resp.json();
             extractionResults = data.slides;
-            renderSlides();
+            initUI();
         } catch (err) {
             document.getElementById('loading').innerHTML =
                 `<p class="text-[13px] text-red-500 font-medium">載入失敗: ${err.message}</p>`;
         }
     }
 
-    function renderSlides() {
+    function initUI() {
         document.getElementById('loading').classList.add('hidden');
-        const container = document.getElementById('slidesContainer');
-        container.classList.remove('hidden');
+        document.getElementById('overviewGrid').classList.remove('hidden');
+        document.getElementById('detailPanel').classList.remove('hidden');
+        document.getElementById('progressRow').classList.remove('hidden');
+        document.getElementById('keyHint').classList.remove('hidden');
 
-        const casePages = extractionResults.filter(s => s.is_case_page);
-        const errorPages = extractionResults.filter(s => s.error && !s.skipped);
-        const otherPages = extractionResults.filter(s => !s.is_case_page && !s.error && s.skipped);
-
-        if (casePages.length > 0) {
-            const header = document.createElement('div');
-            header.className = 'flex items-center gap-2.5 mb-3';
-            header.innerHTML = `
-                <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-teal/10 to-teal/[0.04] flex items-center justify-center">
-                    <span class="material-icons-outlined text-teal text-[15px]">check_circle</span>
-                </div>
-                <h2 class="text-[14px] font-semibold text-gray-700">案例頁 <span class="font-mono text-gray-400">(${casePages.length})</span></h2>`;
-            container.appendChild(header);
-            casePages.forEach((slide, i) => {
-                const card = createCaseCard(slide);
-                card.style.animationDelay = `${i * 0.04}s`;
-                card.classList.add('stagger-in');
-                container.appendChild(card);
-            });
-        }
-
-        if (errorPages.length > 0) {
-            const header = document.createElement('div');
-            header.className = 'flex items-center gap-2.5 mt-10 mb-3';
-            header.innerHTML = `
-                <div class="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center">
-                    <span class="material-icons-outlined text-red-400 text-[15px]">error</span>
-                </div>
-                <h2 class="text-[14px] font-semibold text-red-500">提取失敗 <span class="font-mono text-red-300">(${errorPages.length})</span></h2>`;
-            container.appendChild(header);
-
-            errorPages.forEach(slide => {
-                const card = document.createElement('div');
-                card.className = 'card bg-red-50/40 border-red-100 rounded-xl p-4 flex items-center justify-between';
-                card.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <span class="material-icons-outlined text-red-300 text-[18px]">image</span>
-                        <span class="text-[13px] font-semibold text-gray-700">Slide <span class="font-mono">${slide.slide_number}</span></span>
-                    </div>
-                    <span class="text-[11px] text-red-400 font-mono font-medium">${slide.error}</span>`;
-                container.appendChild(card);
-            });
-        }
-
-        if (otherPages.length > 0) {
-            const collapsible = document.createElement('details');
-            collapsible.className = 'mt-10 card bg-surface-card rounded-xl';
-            collapsible.innerHTML = `
-                <summary class="px-5 py-3 text-[12px] text-gray-400 cursor-pointer hover:text-gray-600 transition-colors duration-200 flex items-center gap-2 font-medium select-none">
-                    <span class="material-icons-outlined text-[14px]">expand_more</span>
-                    跳過的頁面 <span class="font-mono">(${otherPages.length})</span>
-                </summary>
-                <div class="px-5 pb-4 text-[11px] text-gray-300 font-mono font-medium">
-                    ${otherPages.map(s => 'Slide ' + s.slide_number).join(', ')}
-                </div>`;
-            container.appendChild(collapsible);
-        }
+        renderGrid();
+        showSlide(0);
+        updateCounter();
     }
 
-    function createCaseCard(slide) {
-        const card = document.createElement('div');
-        card.className = 'card bg-surface-card rounded-2xl p-5';
-        card.dataset.slideNumber = slide.slide_number;
+    function renderGrid() {
+        const container = document.getElementById('gridContainer');
+        container.innerHTML = '';
 
-        const fields = slide.data || {};
-        const fieldDefs = [
-            ['date', 'Date', 'event'],
-            ['customer', 'Customer', 'business'],
-            ['device', 'Device', 'memory'],
-            ['model', 'Model', 'label'],
-            ['defect_mode', 'Defect Mode', 'report_problem'],
-            ['defect_rate_raw', 'Defect Rate', 'percent'],
-            ['defect_lots', 'Defect Lots', 'inventory'],
-            ['fab_assembly', 'FAB/Assembly', 'factory'],
-            ['fa_status', 'FA Status', 'flag'],
-            ['follow_up', 'Follow Up', 'update'],
-        ];
+        extractionResults.forEach((slide, i) => {
+            const isError = slide.data === null;
+            const isConfirmed = confirmedSet.has(slide.slide_number);
 
-        let fieldsHtml = fieldDefs.map(([key, label, icon]) => {
+            let borderClass, bgClass, dotHtml;
+            if (isConfirmed) {
+                borderClass = 'border-teal/50 ring-2 ring-teal/20';
+                bgClass = 'bg-teal/[0.06]';
+                dotHtml = '<span class="material-icons-outlined text-teal text-[10px]">check_circle</span>';
+            } else if (isError) {
+                borderClass = 'border-red-200';
+                bgClass = 'bg-red-50/50';
+                dotHtml = '<span class="material-icons-outlined text-red-400 text-[10px]">error</span>';
+            } else {
+                borderClass = 'border-gray-100';
+                bgClass = 'bg-white';
+                dotHtml = '<span class="w-1.5 h-1.5 rounded-full bg-gray-200"></span>';
+            }
+
+            const activeClass = i === currentIndex ? 'ring-2 ring-accent shadow-md' : '';
+
+            const thumb = document.createElement('button');
+            thumb.className = `relative rounded-lg px-2.5 py-1.5 border ${borderClass} ${bgClass} ${activeClass} flex items-center gap-1.5 transition-all duration-200 hover:shadow-sm cursor-pointer`;
+            thumb.dataset.index = i;
+            thumb.onclick = () => showSlide(i);
+            thumb.innerHTML = `
+                ${dotHtml}
+                <span class="text-[11px] font-mono font-semibold ${isConfirmed ? 'text-teal' : isError ? 'text-red-400' : 'text-gray-500'}">S${slide.slide_number}</span>`;
+            container.appendChild(thumb);
+        });
+    }
+
+    function showSlide(index) {
+        // Save current edits before switching
+        saveCurrentEdits();
+
+        currentIndex = index;
+        const slide = extractionResults[index];
+        const isError = slide.data === null;
+
+        // Update grid active state
+        document.querySelectorAll('#gridContainer button').forEach((btn, i) => {
+            btn.classList.toggle('ring-2', i === index);
+            btn.classList.toggle('ring-accent', i === index);
+            btn.classList.toggle('shadow-md', i === index);
+        });
+
+        // Status
+        const statusEl = document.getElementById('detailStatus');
+        if (isError) {
+            statusEl.innerHTML = '<span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-400"></span><span class="text-[11px] font-bold text-red-400 uppercase tracking-wider">提取失敗</span></span>';
+            document.getElementById('detailError').classList.remove('hidden');
+            document.getElementById('detailErrorText').textContent = slide.error || '提取失敗';
+        } else {
+            statusEl.innerHTML = '<span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-teal glow-dot" style="color: #2dd4bf;"></span><span class="text-[11px] font-bold text-teal uppercase tracking-wider">案例頁</span></span>';
+            document.getElementById('detailError').classList.add('hidden');
+        }
+
+        // Image
+        const img = document.getElementById('detailImage');
+        img.src = `/uploads/${slide.image_path}`;
+        img.alt = `Slide ${slide.slide_number}`;
+        document.getElementById('detailSlideLabel').textContent = `Slide ${slide.slide_number}`;
+
+        // Fields — use edited values if available, otherwise original data
+        const fields = editedFields[slide.slide_number] || slide.data || {};
+        const fieldsEl = document.getElementById('detailFields');
+        fieldsEl.innerHTML = FIELD_DEFS.map(([key, label, icon]) => {
             const value = key === 'defect_lots'
                 ? (Array.isArray(fields[key]) ? fields[key].join(', ') : (fields[key] || ''))
-                : (fields[key] || fields[key.replace('_raw', '')] || '');
+                : (fields[key] || '');
             return `
-                <div class="flex items-center gap-2.5 py-1.5 group/f">
+                <div class="flex items-center gap-2.5 py-2 group/f">
                     <span class="material-icons-outlined text-gray-300 text-[14px] group-hover/f:text-accent/40 transition-colors">${icon}</span>
                     <span class="w-24 text-[10px] font-bold text-gray-400 uppercase tracking-wider shrink-0 font-mono">${label}</span>
                     <input type="text" data-field="${key}" value="${escapeHtml(value)}"
-                        class="flex-1 text-[13px] border-b border-transparent hover:border-gray-200 focus:border-accent focus:outline-none px-1.5 py-0.5 transition-all duration-200 bg-transparent font-medium">
+                        class="flex-1 text-[13px] border-b border-transparent hover:border-gray-200 focus:border-accent focus:outline-none px-1.5 py-1 transition-all duration-200 bg-transparent font-medium"
+                        ${hasWriteScope ? '' : 'readonly'}>
                 </div>`;
         }).join('');
 
-        card.innerHTML = `
-            <div class="flex gap-5">
-                <div class="w-60 shrink-0">
-                    <div class="relative overflow-hidden rounded-xl group/img">
-                        <img src="/uploads/${slide.image_path}" alt="Slide ${slide.slide_number}"
-                            class="w-full rounded-xl border border-surface-muted cursor-pointer transition-transform duration-300 group-hover/img:scale-[1.02]"
-                            onclick="window.open('/uploads/${slide.image_path}', '_blank')">
-                    </div>
-                    <p class="text-[10px] text-gray-300 mt-2 text-center font-mono font-medium">Slide ${slide.slide_number}</p>
-                </div>
-                <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="w-2 h-2 rounded-full bg-teal glow-dot" style="color: #2dd4bf;"></span>
-                        <span class="text-[11px] font-bold text-teal uppercase tracking-wider">案例頁</span>
-                    </div>
-                    ${fieldsHtml}
-                </div>
-            </div>`;
+        // Navigation buttons
+        document.getElementById('prevBtn').disabled = index === 0;
+        document.getElementById('nextBtn').disabled = index === extractionResults.length - 1;
+        document.getElementById('navCounter').textContent = `${index + 1} / ${extractionResults.length}`;
 
-        return card;
+        // Confirm button state
+        updateConfirmBtn();
+    }
+
+    function saveCurrentEdits() {
+        if (extractionResults.length === 0) return;
+        const slide = extractionResults[currentIndex];
+        const inputs = document.querySelectorAll('#detailFields input[data-field]');
+        if (inputs.length === 0) return;
+
+        const edits = {};
+        inputs.forEach(input => {
+            const field = input.dataset.field;
+            let value = input.value.trim();
+            if (field === 'defect_lots') {
+                edits[field] = value ? value.split(',').map(s => s.trim()) : [];
+            } else {
+                edits[field] = value || null;
+            }
+        });
+        editedFields[slide.slide_number] = edits;
+    }
+
+    function navigate(direction) {
+        const newIndex = currentIndex + direction;
+        if (newIndex >= 0 && newIndex < extractionResults.length) {
+            showSlide(newIndex);
+        }
+    }
+
+    function toggleConfirmed() {
+        const slide = extractionResults[currentIndex];
+        if (confirmedSet.has(slide.slide_number)) {
+            confirmedSet.delete(slide.slide_number);
+        } else {
+            confirmedSet.add(slide.slide_number);
+        }
+        updateConfirmBtn();
+        renderGrid();
+        updateCounter();
+    }
+
+    function updateConfirmBtn() {
+        const btn = document.getElementById('confirmBtn');
+        if (!btn) return;
+        const slide = extractionResults[currentIndex];
+        const isConfirmed = confirmedSet.has(slide.slide_number);
+
+        if (isConfirmed) {
+            btn.className = 'inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-all duration-200 bg-teal/10 text-teal border border-teal/20';
+            btn.innerHTML = '<span class="material-icons-outlined text-[14px]">check_circle</span>已確認';
+        } else {
+            btn.className = 'inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-all duration-200 text-gray-400 hover:text-teal hover:bg-teal/5 border border-gray-100 hover:border-teal/20';
+            btn.innerHTML = '<span class="material-icons-outlined text-[14px]">radio_button_unchecked</span>標記已確認';
+        }
+    }
+
+    function updateCounter() {
+        const total = extractionResults.length;
+        const confirmed = confirmedSet.size;
+        const errors = extractionResults.filter(s => s.data === null).length;
+
+        // Counter text
+        let text = `${confirmed}/${total} 已確認`;
+        if (errors > 0) text += ` · ${errors} 提取失敗`;
+        document.getElementById('caseCounter').textContent = text;
+
+        // Progress bar
+        const pct = total > 0 ? Math.round((confirmed / total) * 100) : 0;
+        document.getElementById('reviewProgress').style.width = pct + '%';
+        document.getElementById('reviewProgressText').textContent = `${confirmed}/${total}`;
     }
 
     function escapeHtml(str) {
@@ -174,32 +330,45 @@
         return div.innerHTML;
     }
 
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+        // Skip if user is typing in an input
+        if (e.target.tagName === 'INPUT') return;
+
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            navigate(-1);
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            navigate(1);
+        } else if (e.key === ' ') {
+            e.preventDefault();
+            if (hasWriteScope) toggleConfirmed();
+        }
+    });
+
     async function confirmSave() {
+        // Save current page edits first
+        saveCurrentEdits();
+
         const btn = document.getElementById('saveAllBtn');
         btn.disabled = true;
         btn.innerHTML = '<span class="material-icons-outlined text-[18px] animate-spin">refresh</span>儲存中...';
 
-        const cards = document.querySelectorAll('[data-slide-number]');
         const cases = [];
-
-        cards.forEach(card => {
-            const slideNum = parseInt(card.dataset.slideNumber);
-            const slide = extractionResults.find(s => s.slide_number === slideNum);
-            if (!slide || !slide.is_case_page) return;
-
+        extractionResults.forEach(slide => {
+            const fields = editedFields[slide.slide_number] || slide.data || {};
             const caseData = {
-                slide_number: slideNum,
+                slide_number: slide.slide_number,
                 image_path: slide.image_path,
                 raw_vlm_response: slide.raw_vlm_response || null,
             };
 
-            card.querySelectorAll('input[data-field]').forEach(input => {
-                const field = input.dataset.field;
-                let value = input.value.trim();
-                if (field === 'defect_lots') {
-                    caseData[field] = value ? value.split(',').map(s => s.trim()) : [];
+            FIELD_DEFS.forEach(([key]) => {
+                if (key === 'defect_lots') {
+                    caseData[key] = Array.isArray(fields[key]) ? fields[key] : [];
                 } else {
-                    caseData[field] = value || null;
+                    caseData[key] = fields[key] || null;
                 }
             });
 

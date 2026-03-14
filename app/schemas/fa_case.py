@@ -22,6 +22,13 @@ class VLMSlideResult(BaseModel):
     data: VLMExtractedData | None = None
 
 
+# --- VLM Stage 1: Classification ---
+class VLMClassificationResult(BaseModel):
+    is_case_page: bool
+    confidence: float  # 0.0 - 1.0
+    reason: str
+
+
 # --- Slide processing result ---
 class SlideExtractionResult(BaseModel):
     slide_number: int
@@ -30,6 +37,26 @@ class SlideExtractionResult(BaseModel):
     skipped: bool = False  # True if pre-filter skipped this slide
     data: VLMExtractedData | None = None
     error: str | None = None
+
+
+# --- Triage ---
+class SlideClassification(BaseModel):
+    slide_id: int
+    is_case_page: bool
+
+
+class TriageConfirmRequest(BaseModel):
+    classifications: list[SlideClassification]
+
+
+class SlideTriageInfo(BaseModel):
+    id: int
+    slide_number: int
+    image_path: str | None
+    is_candidate: bool
+    classification_status: str
+    classification_confidence: float | None
+    is_case_page: bool
 
 
 # --- Upload ---
@@ -70,6 +97,18 @@ class CaseResponse(BaseModel):
     fa_status: str | None
     follow_up: str | None
     created_at: datetime
+    updated_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class CaseFieldLogResponse(BaseModel):
+    id: int
+    field_name: str
+    old_value: str | None
+    new_value: str | None
+    edited_by: str
+    edited_at: datetime
 
     model_config = {"from_attributes": True}
 
@@ -94,6 +133,7 @@ class WeeklyPeriodResponse(BaseModel):
     week_number: int
     start_date: date
     end_date: date
+    summary: str | None = None
     report_count: int = 0
     case_count: int = 0
 
@@ -108,5 +148,22 @@ class WeeklyPeriodCreate(BaseModel):
 # --- Confirm save (review → DB) ---
 class ConfirmSaveRequest(BaseModel):
     """Sent when user confirms reviewed cases for saving."""
+
     cases: list[CaseEditRequest]
     slide_numbers: list[int]
+
+
+# --- Vector similarity search ---
+class SimilarCaseResult(BaseModel):
+    id: int
+    report_id: int
+    slide_number: int
+    date: str | None
+    customer: str | None
+    device: str | None
+    model: str | None
+    defect_mode: str | None
+    fa_status: str | None
+    similarity: float
+
+    model_config = {"from_attributes": True}

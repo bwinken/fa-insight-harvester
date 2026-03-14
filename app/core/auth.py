@@ -4,7 +4,7 @@ from pathlib import Path
 
 import httpx
 import jwt
-from fastapi import Cookie, HTTPException, Request, status
+from fastapi import HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -72,7 +72,12 @@ def verify_token(token: str) -> dict:
 
 
 def get_current_user_payload(request: Request) -> dict:
-    """Extract and verify user from JWT cookie."""
+    """Extract and verify user from JWT cookie.
+
+    In dev mode (DEV_SKIP_AUTH=true), returns a hardcoded payload with full scopes.
+    """
+    if settings.dev_skip_auth:
+        return {"sub": "dev", "org_id": "dev", "scopes": ["read", "write", "admin"]}
     token = request.cookies.get("access_token")
     if not token:
         raise HTTPException(
@@ -80,6 +85,21 @@ def get_current_user_payload(request: Request) -> dict:
             detail="Not authenticated",
         )
     return verify_token(token)
+
+
+def require_scope(request: Request, scope: str) -> dict:
+    """Verify JWT and check that the token includes the required scope.
+
+    Raises 403 if the user is authenticated but lacks the scope.
+    """
+    payload = get_current_user_payload(request)
+    scopes = payload.get("scopes", [])
+    if scope not in scopes:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Insufficient scope: '{scope}' required",
+        )
+    return payload
 
 
 async def get_or_create_user(db: AsyncSession, payload: dict) -> FAUser:

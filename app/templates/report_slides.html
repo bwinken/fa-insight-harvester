@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}投影片總覽 — QVault{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <a href="/weeks/{{ report.weekly_period_id }}" class="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-accent transition-colors duration-200 mb-2 font-medium group">
+        <span class="material-icons-outlined text-[14px] group-hover:-translate-x-0.5 transition-transform">arrow_back</span>返回周報
+    </a>
+    <h1 class="text-[26px] font-bold text-gray-900 tracking-tight">投影片總覽</h1>
+    <div class="flex items-center gap-2 mt-1">
+        <span class="material-icons-outlined text-gray-300 text-[14px]">description</span>
+        <p class="text-[13px] text-gray-400 font-mono font-medium">{{ report.filename }}</p>
+        <span class="mx-2 text-gray-200">|</span>
+        <span class="text-[12px] text-gray-400">共 {{ slides|length }} 頁</span>
+        <span class="mx-2 text-gray-200">|</span>
+        <span class="text-[12px] font-medium {% if report.status == 'done' %}text-teal{% elif report.status == 'review' %}text-amber-500{% else %}text-gray-400{% endif %}">
+            {{ report.status }}
+        </span>
+    </div>
+</div>
+
+<!-- Guide tip -->
+{% if "write" in scopes|default([]) %}
+{% set unlinked = slides|selectattr('linked_case_id', 'none')|selectattr('is_candidate')|list %}
+{% if unlinked %}
+<div id="slidesGuideTip" class="mb-5 rounded-xl border border-amber-200/50 bg-amber-50/30 px-5 py-3.5 flex items-start gap-3">
+    <span class="material-icons-outlined text-amber-400 text-[18px] mt-0.5 shrink-0">info</span>
+    <div class="flex-1 text-[12px] text-gray-500 leading-relaxed">
+        有 <strong class="text-amber-600">{{ unlinked|length }}</strong> 個候選投影片尚未建立案例。
+        如果其中包含遺漏的 FA 案例，點擊卡片下方<strong class="text-accent">「建立案例」</strong>按鈕即可手動建立。
+        已確認的案例可點擊<strong class="text-teal">「查看案例」</strong>前往編輯或刪除。
+    </div>
+    <button onclick="document.getElementById('slidesGuideTip').remove()" class="text-gray-300 hover:text-gray-500 transition-colors shrink-0" title="關閉">
+        <span class="material-icons-outlined text-[16px]">close</span>
+    </button>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- Legend -->
+<div class="flex items-center gap-6 mb-6 text-[11px] text-gray-400 font-medium">
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-teal/20 border border-teal/40"></span>已確認案例</span>
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-amber-100 border border-amber-300"></span>候選（未確認）</span>
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-gray-50 border border-gray-200"></span>跳過</span>
+</div>
+
+<!-- Slides grid -->
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+    {% for slide in slides %}
+    <div class="group relative rounded-xl overflow-hidden border transition-all duration-200
+        {% if slide.linked_case_id %}border-teal/40 bg-teal/[0.03] hover:shadow-lg hover:shadow-teal/10
+        {% elif slide.is_candidate %}border-amber-200 bg-amber-50/30 hover:shadow-lg hover:shadow-amber-100/30
+        {% else %}border-gray-100 bg-white hover:shadow-md{% endif %}">
+
+        <!-- Image -->
+        <div class="relative aspect-[4/3] overflow-hidden bg-gray-50">
+            <img src="/uploads/{{ slide.image_path }}" alt="Slide {{ slide.slide_number }}"
+                class="w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-105"
+                onclick="window.open('/uploads/{{ slide.image_path }}', '_blank')">
+
+            <!-- Slide number badge -->
+            <div class="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-mono font-medium px-2 py-0.5 rounded-md">
+                Slide {{ slide.slide_number }}
+            </div>
+
+            <!-- Status badge -->
+            {% if slide.linked_case_id %}
+            <div class="absolute top-2 right-2 bg-teal text-white text-[9px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+                <span class="material-icons-outlined text-[12px]">check</span>案例
+            </div>
+            {% elif slide.is_candidate %}
+            <div class="absolute top-2 right-2 bg-amber-400 text-white text-[9px] font-bold px-2 py-0.5 rounded-md">
+                候選
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Footer -->
+        <div class="px-3 py-2.5 flex items-center justify-between">
+            {% if slide.linked_case_id %}
+            <a href="/cases/{{ slide.linked_case_id }}" class="text-[11px] text-teal font-semibold hover:underline flex items-center gap-1">
+                <span class="material-icons-outlined text-[14px]">open_in_new</span>查看案例
+            </a>
+            {% elif "write" in scopes|default([]) %}
+            <button onclick="openCreateCase({{ slide.id }}, {{ slide.slide_number }})"
+                class="text-[11px] text-accent hover:text-accent-light font-semibold flex items-center gap-1 transition-colors"
+                title="將此投影片手動建立為 FA 案例">
+                <span class="material-icons-outlined text-[14px]">add_circle_outline</span>建立案例
+            </button>
+            {% else %}
+            <span class="text-[10px] text-gray-300">—</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Create case modal -->
+<div id="createCaseModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 class="text-[16px] font-bold text-gray-900">手動建立案例 — <span id="modalSlideLabel" class="font-mono text-accent"></span></h3>
+            <button onclick="closeCreateCase()" class="text-gray-300 hover:text-gray-500 transition-colors">
+                <span class="material-icons-outlined">close</span>
+            </button>
+        </div>
+        <form id="createCaseForm" class="px-6 py-4 space-y-3">
+            <input type="hidden" id="modalSlideId">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">Date</label>
+                    <input type="text" name="date" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">Customer</label>
+                    <input type="text" name="customer" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">Device</label>
+                    <input type="text" name="device" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">Model</label>
+                    <input type="text" name="model" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+                </div>
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">Defect Mode</label>
+                <input type="text" name="defect_mode" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">Defect Rate</label>
+                    <input type="text" name="defect_rate_raw" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">FAB/Assembly</label>
+                    <input type="text" name="fab_assembly" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+                </div>
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">Defect Lots</label>
+                <input type="text" name="defect_lots" placeholder="以逗號分隔" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">FA Status</label>
+                <input type="text" name="fa_status" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">Follow Up</label>
+                <input type="text" name="follow_up" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+            </div>
+        </form>
+        <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+            <button onclick="closeCreateCase()" class="px-4 py-2 text-[13px] text-gray-500 hover:text-gray-700 font-medium transition-colors">取消</button>
+            <button id="submitCaseBtn" onclick="submitCreateCase()"
+                class="px-5 py-2 bg-gradient-to-r from-accent to-accent-light text-white text-[13px] font-semibold rounded-xl hover:shadow-lg hover:shadow-accent/20 transition-all duration-300">
+                建立案例
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openCreateCase(slideId, slideNumber) {
+        document.getElementById('modalSlideId').value = slideId;
+        document.getElementById('modalSlideLabel').textContent = `Slide ${slideNumber}`;
+        document.getElementById('createCaseForm').reset();
+        document.getElementById('createCaseModal').classList.remove('hidden');
+    }
+
+    function closeCreateCase() {
+        document.getElementById('createCaseModal').classList.add('hidden');
+    }
+
+    async function submitCreateCase() {
+        const btn = document.getElementById('submitCaseBtn');
+        const slideId = document.getElementById('modalSlideId').value;
+        btn.disabled = true;
+        btn.textContent = '建立中...';
+
+        const form = document.getElementById('createCaseForm');
+        const data = {};
+        form.querySelectorAll('input[name]').forEach(input => {
+            if (input.type === 'hidden') return;
+            const val = input.value.trim();
+            if (input.name === 'defect_lots') {
+                data[input.name] = val ? val.split(',').map(s => s.trim()) : null;
+            } else {
+                data[input.name] = val || null;
+            }
+        });
+
+        try {
+            const resp = await fetch(`/api/slides/${slideId}/create-case`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!resp.ok) {
+                const err = await resp.json();
+                alert('建立失敗: ' + (err.detail || '未知錯誤'));
+                return;
+            }
+            const result = await resp.json();
+            alert(`案例已建立 (ID: ${result.case_id})`);
+            window.location.reload();
+        } catch (err) {
+            alert('建立失敗: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '建立案例';
+        }
+    }
+
+    // Close modal on backdrop click
+    document.getElementById('createCaseModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeCreateCase();
+    });
+</script>
+{% endblock %}

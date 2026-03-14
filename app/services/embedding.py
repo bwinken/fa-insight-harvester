@@ -63,30 +63,47 @@ def build_case_text(case: FACase) -> str:
 
 async def generate_text_embedding(client: AsyncOpenAI, text: str) -> list[float]:
     """Generate text embedding using Qwen3-VL Chat Embeddings API."""
-    response = await _chat_embeddings(client, messages=[
-        {"role": "system", "content": [{"type": "text", "text": DEFAULT_INSTRUCTION}]},
-        {"role": "user", "content": [{"type": "text", "text": text}]},
-        {"role": "assistant", "content": [{"type": "text", "text": ""}]},
-    ])
+    response = await _chat_embeddings(
+        client,
+        messages=[
+            {
+                "role": "system",
+                "content": [{"type": "text", "text": DEFAULT_INSTRUCTION}],
+            },
+            {"role": "user", "content": [{"type": "text", "text": text}]},
+            {"role": "assistant", "content": [{"type": "text", "text": ""}]},
+        ],
+    )
     return response.data[0].embedding
 
 
-async def generate_image_embedding(client: AsyncOpenAI, image_path: str | Path) -> list[float]:
+async def generate_image_embedding(
+    client: AsyncOpenAI, image_path: str | Path
+) -> list[float]:
     """Generate image embedding using Qwen3-VL Chat Embeddings API."""
     try:
         b64 = image_to_base64(Path(image_path))
 
-        response = await _chat_embeddings(client, messages=[
-            {"role": "system", "content": [{"type": "text", "text": DEFAULT_INSTRUCTION}]},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
-                    {"type": "text", "text": ""},
-                ],
-            },
-            {"role": "assistant", "content": [{"type": "text", "text": ""}]},
-        ])
+        response = await _chat_embeddings(
+            client,
+            messages=[
+                {
+                    "role": "system",
+                    "content": [{"type": "text", "text": DEFAULT_INSTRUCTION}],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/png;base64,{b64}"},
+                        },
+                        {"type": "text", "text": ""},
+                    ],
+                },
+                {"role": "assistant", "content": [{"type": "text", "text": ""}]},
+            ],
+        )
         return response.data[0].embedding
     except Exception as e:
         logger.warning("Image embedding failed: {}", e)
@@ -101,7 +118,9 @@ async def generate_embeddings_for_case(
     Returns (text_embedding, image_embedding).
     """
     text = build_case_text(case)
-    text_coro = generate_text_embedding(client, text) if text else asyncio.sleep(0, result=[])
+    text_coro = (
+        generate_text_embedding(client, text) if text else asyncio.sleep(0, result=[])
+    )
     image_coro = (
         generate_image_embedding(client, case.slide_image_path)
         if case.slide_image_path

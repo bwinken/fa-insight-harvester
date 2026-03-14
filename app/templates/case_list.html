@@ -1,32 +1,72 @@
 {% extends "base.html" %}
-{% block title %}案例搜尋 — FA Insight Harvester{% endblock %}
+{% block title %}案例管理 — QVault{% endblock %}
+{% block content_width %}max-w-[1400px]{% endblock %}
+
+{% block head %}
+<style>
+    /* ── Table ── */
+    .case-table { border-collapse: separate; border-spacing: 0; }
+    .case-table th {
+        position: sticky; top: 0; z-index: 10;
+        background: #f8f9fa; border-bottom: 2px solid #dadce0;
+        font-size: 11px; font-weight: 600; color: #5f6368;
+        text-transform: uppercase; letter-spacing: 0.04em;
+        padding: 8px 10px; white-space: nowrap; text-align: left;
+    }
+    .case-table td {
+        border-bottom: 1px solid #e8eaed;
+        padding: 0; font-size: 13px; color: #1f1f1f;
+        vertical-align: middle; height: 40px;
+    }
+    .case-table tbody tr:hover { background: #f1f3f4; }
+    .case-table tbody tr.row-dirty { background: #e8f0fe; }
+
+    /* ── Editable cell ── */
+    .cell-input {
+        width: 100%; height: 100%; border: none; outline: none;
+        background: transparent; font: inherit; color: inherit;
+        padding: 8px 10px; box-sizing: border-box;
+    }
+    .cell-input:focus {
+        background: #fff;
+        box-shadow: inset 0 0 0 2px #1a73e8;
+    }
+    .cell-input:read-only {
+        cursor: default;
+    }
+
+    /* ── History modal ── */
+    .history-modal { display: none; }
+    .history-modal.open { display: flex; }
+</style>
+{% endblock %}
 
 {% block content %}
 <!-- Header -->
-<div class="mb-10">
-    <h1 class="text-[26px] font-bold text-gray-900 tracking-tight">案例搜尋</h1>
-    <p class="text-[13px] text-gray-400 mt-1 font-medium">搜尋與篩選所有失效分析案例</p>
+<div class="mb-6">
+    <h1 class="text-[24px] font-bold text-[#1f1f1f] tracking-tight">案例管理</h1>
+    <p class="text-[14px] text-[#5f6368] mt-1">搜尋、瀏覽與編輯所有失效分析案例</p>
 </div>
 
 <!-- Search & Filters -->
-<div class="card bg-surface-card rounded-2xl p-5 mb-8">
-    <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
-        <div class="md:col-span-5 relative">
-            <span class="material-icons-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300 text-[18px]">search</span>
+<div class="bg-white rounded-lg border border-[#dadce0] p-4 mb-5">
+    <div class="grid grid-cols-12 gap-3">
+        <div class="col-span-5 relative">
+            <span class="material-icons-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#bdc1c6] text-[18px]">search</span>
             <input type="text" id="searchQuery" placeholder="全文搜尋 (客戶、Device、缺陷模式...)"
-                class="w-full input-field rounded-xl pl-10 pr-4 py-2.5 text-[13px]">
+                class="w-full input-field rounded-lg pl-10 pr-4 py-2 text-[13px]">
         </div>
-        <div class="md:col-span-3">
+        <div class="col-span-3">
             <input type="text" id="filterCustomer" placeholder="客戶篩選"
-                class="w-full input-field rounded-xl px-4 py-2.5 text-[13px]">
+                class="w-full input-field rounded-lg px-4 py-2 text-[13px]">
         </div>
-        <div class="md:col-span-2">
+        <div class="col-span-2">
             <input type="text" id="filterDevice" placeholder="Device"
-                class="w-full input-field rounded-xl px-4 py-2.5 text-[13px]">
+                class="w-full input-field rounded-lg px-4 py-2 text-[13px]">
         </div>
-        <div class="md:col-span-2">
+        <div class="col-span-2">
             <button onclick="searchCases()"
-                class="w-full bg-gradient-to-r from-accent to-accent-light text-white py-2.5 rounded-xl text-[13px] font-semibold hover:shadow-lg hover:shadow-accent/15 transition-all duration-300 inline-flex items-center justify-center gap-2">
+                class="w-full bg-accent hover:bg-accent-light text-white py-2 rounded-lg text-[13px] font-medium transition-colors inline-flex items-center justify-center gap-1.5">
                 <span class="material-icons-outlined text-[16px]">search</span>
                 搜尋
             </button>
@@ -34,28 +74,67 @@
     </div>
 </div>
 
-<!-- Results -->
-<div id="resultsContainer">
-    <div class="flex flex-col items-center py-20">
-        <div class="w-16 h-16 rounded-2xl bg-surface-muted/60 flex items-center justify-center mb-4">
-            <span class="material-icons-outlined text-gray-300 text-[28px]">manage_search</span>
-        </div>
-        <p class="text-[13px] text-gray-400 font-medium">輸入搜尋條件或直接點擊搜尋查看所有案例</p>
+<!-- Table container -->
+<div class="bg-white rounded-lg border border-[#dadce0] overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="case-table w-full min-w-[1200px]">
+            <thead>
+                <tr>
+                    <th class="w-[50px]">#</th>
+                    <th class="w-[90px]">Date</th>
+                    <th>Customer</th>
+                    <th>Device</th>
+                    <th>Model</th>
+                    <th>Defect Mode</th>
+                    <th class="w-[80px]">Defect Rate</th>
+                    <th class="w-[90px]">FAB/Assy</th>
+                    <th class="w-[80px]">FA Status</th>
+                    <th>Follow Up</th>
+                    <th class="w-[120px]">最後修改</th>
+                    <th class="w-[100px] text-center">操作</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr>
+                    <td colspan="12" class="text-center py-16">
+                        <div class="flex flex-col items-center">
+                            <span class="material-icons-outlined text-[#dadce0] text-[32px] mb-2">table_chart</span>
+                            <p class="text-[13px] text-[#5f6368]">點擊搜尋查看所有案例</p>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 </div>
 
 <!-- Pagination -->
-<div id="pagination" class="hidden flex items-center justify-between mt-5 px-1">
-    <p id="paginationInfo" class="text-[11px] text-gray-400 font-mono font-medium"></p>
+<div id="pagination" class="hidden flex items-center justify-between mt-4 px-1">
+    <p id="paginationInfo" class="text-[12px] text-[#5f6368] font-mono"></p>
     <div class="flex gap-2">
         <button id="prevBtn" onclick="changePage(-1)"
-            class="inline-flex items-center gap-1 px-3.5 py-1.5 border border-surface-muted rounded-lg text-[12px] text-gray-500 font-medium hover:bg-surface hover:border-accent/20 transition-all duration-200 disabled:opacity-30" disabled>
+            class="inline-flex items-center gap-1 px-3.5 py-1.5 border border-[#dadce0] rounded-lg text-[12px] text-[#5f6368] font-medium hover:bg-[#f1f3f4] transition-colors disabled:opacity-30" disabled>
             <span class="material-icons-outlined text-[14px]">chevron_left</span>上一頁
         </button>
         <button id="nextBtn" onclick="changePage(1)"
-            class="inline-flex items-center gap-1 px-3.5 py-1.5 border border-surface-muted rounded-lg text-[12px] text-gray-500 font-medium hover:bg-surface hover:border-accent/20 transition-all duration-200">
+            class="inline-flex items-center gap-1 px-3.5 py-1.5 border border-[#dadce0] rounded-lg text-[12px] text-[#5f6368] font-medium hover:bg-[#f1f3f4] transition-colors">
             下一頁<span class="material-icons-outlined text-[14px]">chevron_right</span>
         </button>
+    </div>
+</div>
+
+<!-- History modal -->
+<div id="historyModal" class="history-modal fixed inset-0 z-50 items-center justify-center bg-black/40">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+        <div class="px-5 py-3.5 border-b border-[#e8eaed] flex items-center justify-between shrink-0">
+            <h3 class="text-[15px] font-bold text-[#1f1f1f]">修改記錄 — <span id="historyTitle" class="font-mono text-accent"></span></h3>
+            <button onclick="closeHistory()" class="text-[#5f6368] hover:text-[#1f1f1f] transition-colors">
+                <span class="material-icons-outlined text-[20px]">close</span>
+            </button>
+        </div>
+        <div id="historyBody" class="overflow-y-auto px-5 py-4 flex-1">
+            <p class="text-[13px] text-[#5f6368]">載入中...</p>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -63,13 +142,20 @@
 {% block scripts %}
 <script>
     let currentPage = 1;
-    const pageSize = 20;
+    const pageSize = 50;
+    const dirtyRows = new Map(); // caseId → { field: newValue, ... }
+    const EDITABLE_FIELDS = ['date','customer','device','model','defect_mode','defect_rate_raw','fab_assembly','fa_status','follow_up'];
 
     document.getElementById('searchQuery').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') searchCases();
     });
 
     async function searchCases() {
+        currentPage = 1;
+        await fetchCases();
+    }
+
+    async function fetchCases() {
         const q = document.getElementById('searchQuery').value.trim();
         const customer = document.getElementById('filterCustomer').value.trim();
         const device = document.getElementById('filterDevice').value.trim();
@@ -82,76 +168,192 @@
         try {
             const resp = await fetch('/api/cases?' + params.toString());
             const data = await resp.json();
-            renderResults(data);
+            dirtyRows.clear();
+            renderTable(data);
         } catch (err) {
-            document.getElementById('resultsContainer').innerHTML =
-                `<div class="text-center py-16"><p class="text-[13px] text-red-500 font-medium">搜尋失敗: ${err.message}</p></div>`;
+            document.getElementById('tableBody').innerHTML =
+                `<tr><td colspan="12" class="text-center py-16"><p class="text-[13px] text-red-500">搜尋失敗: ${err.message}</p></td></tr>`;
         }
     }
 
-    function renderResults(data) {
-        const container = document.getElementById('resultsContainer');
+    function renderTable(data) {
+        const tbody = document.getElementById('tableBody');
 
         if (data.items.length === 0) {
-            container.innerHTML = `
-                <div class="flex flex-col items-center py-20">
-                    <div class="w-16 h-16 rounded-2xl bg-surface-muted/60 flex items-center justify-center mb-4">
-                        <span class="material-icons-outlined text-gray-300 text-[28px]">search_off</span>
-                    </div>
-                    <p class="text-[13px] text-gray-400 font-medium">未找到符合條件的案例</p>
-                </div>`;
+            tbody.innerHTML = `<tr><td colspan="12" class="text-center py-16">
+                <span class="material-icons-outlined text-[#dadce0] text-[32px] mb-2">search_off</span>
+                <p class="text-[13px] text-[#5f6368]">未找到符合條件的案例</p>
+            </td></tr>`;
             document.getElementById('pagination').classList.add('hidden');
             return;
         }
 
-        let html = '<div class="space-y-2">';
-        data.items.forEach((c, i) => {
-            const statusMap = {
-                'Open': 'bg-amber-50 text-amber-600 border-amber-100',
-                'Closed': 'bg-emerald-50 text-emerald-600 border-emerald-100',
-            };
-            const statusClass = statusMap[c.fa_status] || 'bg-gray-50 text-gray-500 border-gray-100';
+        let html = '';
+        data.items.forEach((c) => {
+            const updatedStr = c.updated_at
+                ? new Date(c.updated_at).toLocaleString('zh-TW', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
+                : '—';
 
-            html += `
-            <a href="/cases/${c.id}" class="stagger-in card bg-surface-card rounded-xl p-4 flex items-center justify-between group block" style="animation-delay: ${i * 0.03}s">
-                <div class="flex items-center gap-4 min-w-0">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-accent/[0.06] to-accent/[0.02] flex items-center justify-center shrink-0">
-                        <span class="material-icons-outlined text-accent/50 text-[18px]">bug_report</span>
+            html += `<tr data-id="${c.id}">
+                <td class="px-2.5 text-[12px] text-[#5f6368] font-mono">${c.id}</td>
+                ${EDITABLE_FIELDS.map(f =>
+                    `<td><input class="cell-input" data-field="${f}" data-original="${escAttr(c[f])}" value="${escAttr(c[f])}" oninput="markDirty(${c.id}, '${f}', this)"></td>`
+                ).join('')}
+                <td class="px-2.5 text-[11px] text-[#5f6368] font-mono updated-cell">${updatedStr}</td>
+                <td class="px-2.5 text-center">
+                    <div class="flex items-center justify-center gap-1">
+                        <button class="save-btn hidden text-[11px] text-white bg-accent hover:bg-accent-light px-2.5 py-1 rounded font-medium transition-colors"
+                            onclick="saveRow(${c.id})">儲存</button>
+                        <button class="text-[#5f6368] hover:text-accent transition-colors" title="修改記錄"
+                            onclick="showHistory(${c.id})">
+                            <span class="material-icons-outlined text-[16px]">history</span>
+                        </button>
+                        <a href="/cases/${c.id}" class="text-[#5f6368] hover:text-accent transition-colors" title="詳細">
+                            <span class="material-icons-outlined text-[16px]">open_in_new</span>
+                        </a>
                     </div>
-                    <div class="min-w-0">
-                        <div class="text-[13px] font-semibold text-gray-900 group-hover:text-accent transition-colors duration-200 truncate">
-                            ${c.customer || '—'} / ${c.device || '—'}
-                        </div>
-                        <div class="text-[11px] text-gray-400 mt-0.5 truncate font-medium">
-                            ${c.defect_mode || '—'} · ${c.model || '—'} · <span class="font-mono">${c.date || '—'}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex items-center gap-4 shrink-0 ml-4">
-                    <span class="text-[11px] text-gray-400 font-mono font-medium">${c.defect_rate_raw || ''}</span>
-                    <span class="badge border ${statusClass}">${c.fa_status || '—'}</span>
-                    <span class="material-icons-outlined text-gray-200 group-hover:text-accent group-hover:translate-x-0.5 transition-all duration-200 text-[18px]">chevron_right</span>
-                </div>
-            </a>`;
+                </td>
+            </tr>`;
         });
-        html += '</div>';
-        container.innerHTML = html;
+        tbody.innerHTML = html;
 
         // Pagination
         const totalPages = Math.ceil(data.total / pageSize);
         document.getElementById('pagination').classList.remove('hidden');
         document.getElementById('paginationInfo').textContent =
-            `${data.total} 筆 · ${data.page}/${totalPages}`;
+            `共 ${data.total} 筆 · 第 ${data.page} / ${totalPages} 頁`;
         document.getElementById('prevBtn').disabled = data.page <= 1;
         document.getElementById('nextBtn').disabled = data.page >= totalPages;
     }
 
+    function escAttr(val) {
+        if (val == null) return '';
+        return String(val).replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+
+    function markDirty(caseId, field, input) {
+        const original = input.dataset.original;
+        const current = input.value;
+        const row = input.closest('tr');
+
+        if (!dirtyRows.has(caseId)) dirtyRows.set(caseId, {});
+        const changes = dirtyRows.get(caseId);
+
+        if (current !== original) {
+            changes[field] = current;
+        } else {
+            delete changes[field];
+        }
+
+        const hasDirty = Object.keys(changes).length > 0;
+        row.classList.toggle('row-dirty', hasDirty);
+        row.querySelector('.save-btn').classList.toggle('hidden', !hasDirty);
+    }
+
+    async function saveRow(caseId) {
+        const changes = dirtyRows.get(caseId);
+        if (!changes || Object.keys(changes).length === 0) return;
+
+        const row = document.querySelector(`tr[data-id="${caseId}"]`);
+        const btn = row.querySelector('.save-btn');
+        btn.disabled = true;
+        btn.textContent = '...';
+
+        try {
+            const resp = await fetch(`/api/cases/${caseId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(changes),
+            });
+            if (!resp.ok) {
+                const err = await resp.json();
+                throw new Error(err.detail || '儲存失敗');
+            }
+
+            // Success: update originals, clear dirty state
+            for (const [field, val] of Object.entries(changes)) {
+                const input = row.querySelector(`input[data-field="${field}"]`);
+                if (input) input.dataset.original = val;
+            }
+            dirtyRows.delete(caseId);
+            row.classList.remove('row-dirty');
+            btn.classList.add('hidden');
+
+            // Update "updated_at" cell
+            const updatedCell = row.querySelector('.updated-cell');
+            updatedCell.textContent = new Date().toLocaleString('zh-TW', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+        } catch (err) {
+            alert('儲存失敗: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '儲存';
+        }
+    }
+
+    async function showHistory(caseId) {
+        document.getElementById('historyTitle').textContent = `Case #${caseId}`;
+        document.getElementById('historyBody').innerHTML = '<p class="text-[13px] text-[#5f6368]">載入中...</p>';
+        document.getElementById('historyModal').classList.add('open');
+
+        try {
+            const resp = await fetch(`/api/cases/${caseId}/history`);
+            const logs = await resp.json();
+
+            if (logs.length === 0) {
+                document.getElementById('historyBody').innerHTML =
+                    '<p class="text-[13px] text-[#5f6368] text-center py-8">尚無修改記錄</p>';
+                return;
+            }
+
+            const FIELD_LABELS = {
+                date: 'Date', customer: 'Customer', device: 'Device', model: 'Model',
+                defect_mode: 'Defect Mode', defect_rate_raw: 'Defect Rate',
+                fab_assembly: 'FAB/Assy', fa_status: 'FA Status', follow_up: 'Follow Up',
+                defect_lots: 'Defect Lots',
+            };
+
+            let html = '<div class="space-y-3">';
+            logs.forEach(log => {
+                const dt = new Date(log.edited_at).toLocaleString('zh-TW');
+                const label = FIELD_LABELS[log.field_name] || log.field_name;
+                html += `
+                <div class="border border-[#e8eaed] rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-[12px] font-semibold text-[#1f1f1f]">${label}</span>
+                        <span class="text-[11px] text-[#5f6368] font-mono">${dt}</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-[12px]">
+                        <span class="text-red-500 line-through">${log.old_value || '(空)'}</span>
+                        <span class="material-icons-outlined text-[14px] text-[#5f6368]">arrow_forward</span>
+                        <span class="text-teal font-medium">${log.new_value || '(空)'}</span>
+                    </div>
+                    <div class="text-[11px] text-[#80868b] mt-1">by ${log.edited_by}</div>
+                </div>`;
+            });
+            html += '</div>';
+            document.getElementById('historyBody').innerHTML = html;
+        } catch (err) {
+            document.getElementById('historyBody').innerHTML =
+                `<p class="text-[13px] text-red-500">載入失敗: ${err.message}</p>`;
+        }
+    }
+
+    function closeHistory() {
+        document.getElementById('historyModal').classList.remove('open');
+    }
+
+    // Close modal on backdrop click
+    document.getElementById('historyModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeHistory();
+    });
+
     function changePage(delta) {
         currentPage += delta;
         if (currentPage < 1) currentPage = 1;
-        searchCases();
+        fetchCases();
     }
 
-    searchCases();
+    // Auto-load on page open
+    fetchCases();
 </script>
 {% endblock %}

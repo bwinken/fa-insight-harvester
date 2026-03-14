@@ -1,19 +1,30 @@
 """Case CRUD, review confirmation, and search routes."""
 
-import json
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from loguru import logger
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.core.auth import get_current_user_payload, get_or_create_user
-from app.core.config import settings
+from app.core.auth import get_or_create_user, require_scope
 from app.models.database import get_db
-from app.models.fa_case import FACase, FAReport, FAWeeklyPeriod
-from app.schemas.fa_case import CaseEditRequest
-from app.services.embedding import build_case_text, generate_embeddings_for_case, generate_text_embedding
+from app.models.fa_case import (
+    FACase,
+    FACaseFieldLog,
+    FAReport,
+    FAReportSlide,
+    FAUser,
+    FAWeeklyPeriod,
+)
+from app.schemas.fa_case import CaseEditRequest, SimilarCaseResult
+from app.services.audit import log_action
+from app.services.embedding import (
+    build_case_text,
+    generate_embeddings_for_case,
+    generate_text_embedding,
+)
+from app.services.weekly_summary import generate_weekly_summary
 
 router = APIRouter(prefix="/api", tags=["cases"])
 
@@ -26,11 +37,10 @@ async def confirm_and_save(
     db: AsyncSession = Depends(get_db),
 ):
     """Save reviewed cases to DB (先審後存). Called after user reviews extraction results."""
-    get_current_user_payload(request)
+    payload = require_scope(request, "write")
+    user = await get_or_create_user(db, payload)
 
-    result = await db.execute(
-        select(FAReport).where(FAReport.id == report_id)
-    )
+    result = await db.execute(select(FAReport).where(FAReport.id == report_id))
     report = result.scalar_one_or_none()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
@@ -45,6 +55,7 @@ async def confirm_and_save(
 
         case = FACase(
             report_id=report_id,
+            confirmed_by_id=user.id,
             slide_number=slide_number,
             slide_image_path=image_path,
             date=case_data.get("date"),
@@ -65,6 +76,30 @@ async def confirm_and_save(
     report.status = "done"
     await db.commit()
 
+    # Audit + link slide records to confirmed cases
+    for case in created_cases:
+        await db.refresh(case)
+        await log_action(
+            db,
+            user_id=user.id,
+            action="confirm",
+            target_type="case",
+            target_id=case.id,
+            detail={"report_id": report_id, "slide_number": case.slide_number},
+        )
+        # Link the corresponding slide record
+        slide_result = await db.execute(
+            select(FAReportSlide).where(
+                FAReportSlide.report_id == report_id,
+                FAReportSlide.slide_number == case.slide_number,
+            )
+        )
+        slide_rec = slide_result.scalar_one_or_none()
+        if slide_rec:
+            slide_rec.is_case_page = True
+            slide_rec.linked_case_id = case.id
+    await db.commit()
+
     # Generate embeddings in background (don't block the response)
     vlm_client = request.app.state.vlm_client
     for case in created_cases:
@@ -78,6 +113,12 @@ async def confirm_and_save(
             await db.commit()
         except Exception as e:
             logger.warning("Embedding generation failed for case {}: {}", case.id, e)
+
+    # Regenerate weekly summary (covers new + existing cases in this period)
+    try:
+        await generate_weekly_summary(vlm_client, db, report.weekly_period_id)
+    except Exception as e:
+        logger.warning("Weekly summary generation failed: {}", e)
 
     return {"status": "saved", "case_count": len(created_cases)}
 
@@ -95,7 +136,7 @@ async def list_cases(
     page_size: int = Query(20, ge=1, le=100),
 ):
     """List/search FA cases with filtering and full-text search."""
-    get_current_user_payload(request)
+    require_scope(request, "read")
 
     query = select(FACase).join(FAReport).join(FAWeeklyPeriod)
 
@@ -152,6 +193,7 @@ async def list_cases(
                 "fa_status": c.fa_status,
                 "follow_up": c.follow_up,
                 "created_at": c.created_at.isoformat(),
+                "updated_at": c.updated_at.isoformat() if c.updated_at else None,
             }
             for c in cases
         ],
@@ -168,11 +210,9 @@ async def get_case(
     db: AsyncSession = Depends(get_db),
 ):
     """Get a single case detail."""
-    get_current_user_payload(request)
+    require_scope(request, "read")
 
-    result = await db.execute(
-        select(FACase).where(FACase.id == case_id)
-    )
+    result = await db.execute(select(FACase).where(FACase.id == case_id))
     case = result.scalar_one_or_none()
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
@@ -194,7 +234,39 @@ async def get_case(
         "follow_up": case.follow_up,
         "raw_vlm_response": case.raw_vlm_response,
         "created_at": case.created_at.isoformat(),
+        "updated_at": case.updated_at.isoformat() if case.updated_at else None,
     }
+
+
+@router.get("/cases/{case_id}/history")
+async def get_case_history(
+    case_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get field-level edit history for a case."""
+    require_scope(request, "read")
+
+    result = await db.execute(
+        select(FACaseFieldLog, FAUser.employee_name)
+        .join(FAUser, FACaseFieldLog.edited_by_id == FAUser.id)
+        .where(FACaseFieldLog.case_id == case_id)
+        .order_by(FACaseFieldLog.edited_at.desc())
+        .limit(100)
+    )
+    rows = result.all()
+
+    return [
+        {
+            "id": log.id,
+            "field_name": log.field_name,
+            "old_value": log.old_value,
+            "new_value": log.new_value,
+            "edited_by": name,
+            "edited_at": log.edited_at.isoformat(),
+        }
+        for log, name in rows
+    ]
 
 
 @router.put("/cases/{case_id}")
@@ -205,26 +277,62 @@ async def update_case(
     db: AsyncSession = Depends(get_db),
 ):
     """Update a case's fields."""
-    get_current_user_payload(request)
+    payload = require_scope(request, "write")
+    user = await get_or_create_user(db, payload)
 
-    result = await db.execute(
-        select(FACase).where(FACase.id == case_id)
-    )
+    result = await db.execute(select(FACase).where(FACase.id == case_id))
     case = result.scalar_one_or_none()
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
 
     update_data = data.model_dump(exclude_unset=True)
+    changes = {
+        field: {"old": getattr(case, field), "new": value}
+        for field, value in update_data.items()
+        if getattr(case, field) != value
+    }
     for field, value in update_data.items():
         setattr(case, field, value)
 
+    if changes:
+        case.updated_at = datetime.now(timezone.utc)
+        case.updated_by_id = user.id
+
+        # Write field-level change logs
+        for field, change in changes.items():
+            old_val = change["old"]
+            new_val = change["new"]
+            if isinstance(old_val, list):
+                old_val = ", ".join(old_val) if old_val else None
+            if isinstance(new_val, list):
+                new_val = ", ".join(new_val) if new_val else None
+            db.add(
+                FACaseFieldLog(
+                    case_id=case_id,
+                    field_name=field,
+                    old_value=str(old_val) if old_val is not None else None,
+                    new_value=str(new_val) if new_val is not None else None,
+                    edited_by_id=user.id,
+                )
+            )
+
+    await log_action(
+        db,
+        user_id=user.id,
+        action="edit",
+        target_type="case",
+        target_id=case_id,
+        detail=changes if changes else None,
+    )
     await db.commit()
 
     # Re-generate text embedding after update
     try:
         text = build_case_text(case)
         if text:
-            case.text_embedding = await generate_text_embedding(request.app.state.vlm_client, text)
+            case.text_embedding = await generate_text_embedding(
+                request.app.state.vlm_client, text
+            )
             await db.commit()
     except Exception as e:
         logger.warning("Failed to update embedding for case {}: {}", case_id, e)
@@ -239,18 +347,220 @@ async def delete_case(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a case."""
-    get_current_user_payload(request)
+    payload = require_scope(request, "write")
+    user = await get_or_create_user(db, payload)
 
-    result = await db.execute(
-        select(FACase).where(FACase.id == case_id)
-    )
+    result = await db.execute(select(FACase).where(FACase.id == case_id))
     case = result.scalar_one_or_none()
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
 
+    # Audit before delete (capture key fields for the record)
+    await log_action(
+        db,
+        user_id=user.id,
+        action="delete",
+        target_type="case",
+        target_id=case_id,
+        detail={
+            "report_id": case.report_id,
+            "customer": case.customer,
+            "device": case.device,
+            "defect_mode": case.defect_mode,
+        },
+    )
+
+    # Unlink from slide record
+    slide_result = await db.execute(
+        select(FAReportSlide).where(
+            FAReportSlide.report_id == case.report_id,
+            FAReportSlide.linked_case_id == case_id,
+        )
+    )
+    slide_rec = slide_result.scalar_one_or_none()
+    if slide_rec:
+        slide_rec.is_case_page = False
+        slide_rec.linked_case_id = None
+
     await db.delete(case)
     await db.commit()
     return {"status": "deleted"}
+
+
+@router.get("/reports/{report_id}/slides")
+async def list_report_slides(
+    report_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """List all slides for a report with their case linkage status."""
+    require_scope(request, "read")
+
+    result = await db.execute(
+        select(FAReportSlide)
+        .where(FAReportSlide.report_id == report_id)
+        .order_by(FAReportSlide.slide_number)
+    )
+    slides = result.scalars().all()
+    if not slides:
+        raise HTTPException(status_code=404, detail="No slides found for this report")
+
+    return [
+        {
+            "id": s.id,
+            "slide_number": s.slide_number,
+            "image_path": s.image_path,
+            "is_candidate": s.is_candidate,
+            "is_case_page": s.is_case_page,
+            "linked_case_id": s.linked_case_id,
+        }
+        for s in slides
+    ]
+
+
+@router.post("/slides/{slide_id}/create-case")
+async def create_case_from_slide(
+    slide_id: int,
+    data: CaseEditRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually create an FA case from any slide (post-confirmation recovery)."""
+    payload = require_scope(request, "write")
+    user = await get_or_create_user(db, payload)
+
+    result = await db.execute(select(FAReportSlide).where(FAReportSlide.id == slide_id))
+    slide = result.scalar_one_or_none()
+    if not slide:
+        raise HTTPException(status_code=404, detail="Slide not found")
+    if slide.linked_case_id is not None:
+        raise HTTPException(status_code=409, detail="Slide already linked to a case")
+
+    case = FACase(
+        report_id=slide.report_id,
+        confirmed_by_id=user.id,
+        slide_number=slide.slide_number,
+        slide_image_path=slide.image_path,
+        date=data.date,
+        customer=data.customer,
+        device=data.device,
+        model=data.model,
+        defect_mode=data.defect_mode,
+        defect_rate_raw=data.defect_rate_raw,
+        defect_lots=data.defect_lots,
+        fab_assembly=data.fab_assembly,
+        fa_status=data.fa_status,
+        follow_up=data.follow_up,
+    )
+    db.add(case)
+    await db.commit()
+    await db.refresh(case)
+
+    # Link slide → case
+    slide.is_case_page = True
+    slide.linked_case_id = case.id
+
+    await log_action(
+        db,
+        user_id=user.id,
+        action="confirm",
+        target_type="case",
+        target_id=case.id,
+        detail={
+            "report_id": slide.report_id,
+            "slide_number": slide.slide_number,
+            "source": "manual_recovery",
+        },
+    )
+    await db.commit()
+
+    # Generate embeddings
+    try:
+        vlm_client = request.app.state.vlm_client
+        text_emb, image_emb = await generate_embeddings_for_case(vlm_client, case)
+        if text_emb:
+            case.text_embedding = text_emb
+        if image_emb:
+            case.image_embedding = image_emb
+        await db.commit()
+    except Exception as e:
+        logger.warning("Embedding generation failed for case {}: {}", case.id, e)
+
+    return {"status": "created", "case_id": case.id}
+
+
+@router.get("/cases/search/similar")
+async def search_similar_cases(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    q: str | None = Query(None, description="Text query for semantic search"),
+    case_id: int | None = Query(None, description="Find cases similar to this case"),
+    limit: int = Query(10, ge=1, le=50),
+):
+    """Find similar cases using pgvector cosine similarity.
+
+    Provide either `q` (text query → generate embedding → search)
+    or `case_id` (use existing case's text_embedding as query vector).
+    """
+    require_scope(request, "read")
+
+    if not q and not case_id:
+        raise HTTPException(status_code=400, detail="Provide either 'q' or 'case_id'")
+
+    query_embedding = None
+
+    if case_id:
+        # Use an existing case's embedding as the query vector
+        result = await db.execute(
+            select(FACase.text_embedding).where(FACase.id == case_id)
+        )
+        row = result.first()
+        if not row or row[0] is None:
+            raise HTTPException(
+                status_code=404, detail="Case not found or has no embedding"
+            )
+        query_embedding = row[0]
+    else:
+        # Generate embedding from text query
+        vlm_client = request.app.state.vlm_client
+        try:
+            query_embedding = await generate_text_embedding(vlm_client, q)
+        except Exception as e:
+            logger.error("Failed to generate query embedding: {}", e)
+            raise HTTPException(status_code=502, detail="Embedding service unavailable")
+
+    # Cosine distance: <=> operator (lower = more similar)
+    cosine_dist = FACase.text_embedding.cosine_distance(query_embedding)
+
+    stmt = (
+        select(FACase, cosine_dist.label("distance"))
+        .where(FACase.text_embedding.isnot(None))
+        .order_by(cosine_dist)
+        .limit(limit)
+    )
+
+    # Exclude the query case itself from results
+    if case_id:
+        stmt = stmt.where(FACase.id != case_id)
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    return [
+        SimilarCaseResult(
+            id=case.id,
+            report_id=case.report_id,
+            slide_number=case.slide_number,
+            date=case.date,
+            customer=case.customer,
+            device=case.device,
+            model=case.model,
+            defect_mode=case.defect_mode,
+            fa_status=case.fa_status,
+            similarity=round(1 - distance, 4),  # convert distance → similarity
+        )
+        for case, distance in rows
+    ]
 
 
 @router.get("/weeks")
@@ -260,7 +570,7 @@ async def list_weeks(
     year: int | None = Query(None),
 ):
     """List weekly periods with report/case counts."""
-    get_current_user_payload(request)
+    require_scope(request, "read")
 
     query = (
         select(

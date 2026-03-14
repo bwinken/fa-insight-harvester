@@ -5,7 +5,9 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # Database
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/fa_insight"
+    database_url: str = (
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/fa_insight"
+    )
 
     # VLM
     vlm_base_url: str = "http://vlm-server:8000/v1"

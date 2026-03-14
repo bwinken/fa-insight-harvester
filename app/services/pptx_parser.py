@@ -11,9 +11,18 @@ from app.core.config import settings
 
 # Keywords that indicate a case page
 CASE_KEYWORDS = [
-    "customer", "device", "defect", "fa status", "follow up",
-    "fail rate", "defect rate", "defect mode", "defect phenomenon",
-    "fab", "assembly", "lot",
+    "customer",
+    "device",
+    "defect",
+    "fa status",
+    "follow up",
+    "fail rate",
+    "defect rate",
+    "defect mode",
+    "defect phenomenon",
+    "fab",
+    "assembly",
+    "lot",
 ]
 MIN_KEYWORD_MATCHES = 2
 
@@ -67,8 +76,10 @@ async def convert_pptx_to_images(
     cmd_pdf = [
         "libreoffice",
         "--headless",
-        "--convert-to", "pdf",
-        "--outdir", str(output_dir),
+        "--convert-to",
+        "pdf",
+        "--outdir",
+        str(output_dir),
         str(pptx_path),
     ]
     process = await asyncio.create_subprocess_exec(
@@ -86,7 +97,8 @@ async def convert_pptx_to_images(
     cmd_png = [
         "pdftoppm",
         "-png",
-        "-r", "200",  # 200 DPI
+        "-r",
+        "200",  # 200 DPI
         str(pdf_path),
         prefix,
     ]
@@ -99,8 +111,7 @@ async def convert_pptx_to_images(
     if process.returncode != 0:
         raise RuntimeError(f"PDF to PNG failed: {stderr.decode()}")
 
-    # Clean up intermediate PDF
-    pdf_path.unlink(missing_ok=True)
+    # Keep PDF for future preview / download (original PPTX is also retained)
 
     # Collect output images sorted by name
     images = sorted(output_dir.glob("slide-*.png"))

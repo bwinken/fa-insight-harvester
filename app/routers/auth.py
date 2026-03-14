@@ -7,12 +7,19 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import exchange_code_for_token, get_login_url, get_or_create_user, verify_token
+from app.core.auth import (
+    exchange_code_for_token,
+    get_login_url,
+    get_or_create_user,
+    verify_token,
+)
 from app.core.config import settings
 from app.models.database import get_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-templates = Jinja2Templates(directory=Path(__file__).resolve().parent.parent / "templates")
+templates = Jinja2Templates(
+    directory=Path(__file__).resolve().parent.parent / "templates"
+)
 
 
 @router.get("/login", response_class=HTMLResponse)

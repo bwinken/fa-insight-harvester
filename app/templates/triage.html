@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% block title %}分類確認 — QVault{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <a href="/weeks/{{ report.weekly_period_id }}" class="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-accent transition-colors duration-200 mb-2 font-medium group">
+            <span class="material-icons-outlined text-[14px] group-hover:-translate-x-0.5 transition-transform">arrow_back</span>返回周報
+        </a>
+        <h1 class="text-[26px] font-bold text-gray-900 tracking-tight">分類確認</h1>
+        <div class="flex items-center gap-2 mt-1">
+            <span class="material-icons-outlined text-gray-300 text-[14px]">description</span>
+            <p class="text-[13px] text-gray-400 font-mono font-medium">{{ report.filename }}</p>
+            <span class="mx-2 text-gray-200">|</span>
+            <span class="text-[12px] text-gray-400">共 {{ slides|length }} 頁</span>
+        </div>
+    </div>
+    {% if "write" in scopes|default([]) %}
+    <button id="extractBtn" onclick="confirmAndExtract()"
+        class="inline-flex items-center gap-2 bg-gradient-to-r from-accent to-accent-light text-white px-6 py-2.5 rounded-xl text-[13px] font-semibold hover:shadow-lg hover:shadow-accent/20 transition-all duration-300 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 disabled:shadow-none hover:-translate-y-0.5 disabled:translate-y-0">
+        <span class="material-icons-outlined text-[18px]">play_arrow</span>
+        確認分類並開始提取
+    </button>
+    {% endif %}
+</div>
+
+<!-- Guide banner -->
+{% if "write" in scopes|default([]) %}
+<div id="triageGuide" class="mb-5 rounded-xl border border-accent/10 bg-gradient-to-r from-accent/[0.03] to-transparent px-5 py-4">
+    <div class="flex items-start gap-3">
+        <span class="material-icons-outlined text-accent/50 text-[20px] mt-0.5 shrink-0">lightbulb</span>
+        <div class="flex-1">
+            <p class="text-[13px] font-semibold text-gray-700 mb-2">操作提示</p>
+            <ul class="space-y-1.5 text-[12px] text-gray-500 leading-relaxed">
+                <li class="flex items-start gap-2">
+                    <span class="material-icons-outlined text-teal text-[14px] mt-0.5 shrink-0">check_circle</span>
+                    <span><strong class="text-teal">綠色</strong> = VLM 判定為 FA 案例頁。如果判斷錯誤，點擊卡片上的切換按鈕可改為非案例。</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="material-icons-outlined text-red-400 text-[14px] mt-0.5 shrink-0">cancel</span>
+                    <span><strong class="text-red-400">紅色</strong> = VLM 判定為非案例頁。如果有遺漏，點擊切換按鈕可升級為案例。</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="material-icons-outlined text-amber-400 text-[14px] mt-0.5 shrink-0">warning</span>
+                    <span><strong class="text-amber-500">黃色</strong> = VLM 分類失敗。點擊<strong class="text-accent">「重試」</strong>按鈕重新分類。</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="material-icons-outlined text-accent text-[14px] mt-0.5 shrink-0">play_arrow</span>
+                    <span>確認分類後，點擊右上角<strong class="text-gray-600">「確認分類並開始提取」</strong>，系統將對所有案例頁提取 10 個欄位。</span>
+                </li>
+            </ul>
+        </div>
+        <button onclick="document.getElementById('triageGuide').remove()" class="text-gray-300 hover:text-gray-500 transition-colors shrink-0 mt-0.5" title="關閉提示">
+            <span class="material-icons-outlined text-[18px]">close</span>
+        </button>
+    </div>
+</div>
+{% endif %}
+
+<!-- Stats bar -->
+<div id="statsBar" class="flex items-center gap-6 mb-6 text-[12px] font-medium">
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-teal/20 border border-teal/40"></span>案例 <span id="caseCount" class="font-mono text-teal">0</span></span>
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-100 border border-red-300"></span>非案例 <span id="notCaseCount" class="font-mono text-red-400">0</span></span>
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-amber-100 border border-amber-300"></span>失敗 <span id="errorCount" class="font-mono text-amber-500">0</span></span>
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-gray-50 border border-gray-200"></span>跳過 <span id="skipCount" class="font-mono text-gray-400">0</span></span>
+</div>
+
+<!-- Slides grid -->
+<div id="slidesGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"></div>
+
+<!-- Extraction progress overlay -->
+<div id="extractOverlay" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-8 text-center">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-accent/8 to-accent/[0.02] flex items-center justify-center mb-4 mx-auto border border-accent/[0.06]">
+            <span class="material-icons-outlined text-accent text-[24px] animate-spin" style="animation-duration: 2s;">hourglass_top</span>
+        </div>
+        <p class="text-[15px] font-semibold text-gray-800 mb-1">正在提取案例欄位...</p>
+        <p id="extractProgressText" class="text-[13px] text-gray-400 font-mono">0 / 0</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const reportId = {{ report.id }};
+    const hasWriteScope = {{ "true" if "write" in scopes|default([]) else "false" }};
+
+    // Slide data from server (will be modified client-side)
+    let slidesData = {{ slides_json|safe }};
+
+    function updateStats() {
+        let caseN = 0, notCaseN = 0, errorN = 0, skipN = 0;
+        slidesData.forEach(s => {
+            if (!s.is_candidate) { skipN++; return; }
+            if (s.is_case_page || s.classification_status === 'case') {
+                if (s._user_override === false) notCaseN++;
+                else if (s._user_override === true || s.classification_status === 'case') caseN++;
+                else notCaseN++;
+            } else if (s.classification_status === 'error') errorN++;
+            else if (s.classification_status === 'not_case') {
+                if (s._user_override === true) caseN++;
+                else notCaseN++;
+            } else skipN++;
+        });
+        // Simpler: count by effective status
+        caseN = 0; notCaseN = 0; errorN = 0; skipN = 0;
+        slidesData.forEach(s => {
+            const eff = getEffectiveStatus(s);
+            if (eff === 'case') caseN++;
+            else if (eff === 'not_case') notCaseN++;
+            else if (eff === 'error') errorN++;
+            else skipN++;
+        });
+        document.getElementById('caseCount').textContent = caseN;
+        document.getElementById('notCaseCount').textContent = notCaseN;
+        document.getElementById('errorCount').textContent = errorN;
+        document.getElementById('skipCount').textContent = skipN;
+    }
+
+    function getEffectiveStatus(slide) {
+        if (!slide.is_candidate) return 'skip';
+        if (slide._user_override !== undefined) {
+            return slide._user_override ? 'case' : 'not_case';
+        }
+        return slide.classification_status; // case | not_case | error
+    }
+
+    function toggleSlide(slideId) {
+        const slide = slidesData.find(s => s.id === slideId);
+        if (!slide) return;
+        const current = getEffectiveStatus(slide);
+        if (current === 'case') slide._user_override = false;
+        else if (current === 'not_case') slide._user_override = true;
+        else if (current === 'error') slide._user_override = true;  // promote error to case
+        renderGrid();
+    }
+
+    async function retryClassify(slideId) {
+        const btn = document.getElementById(`retry-${slideId}`);
+        if (btn) { btn.disabled = true; btn.textContent = '...'; }
+
+        try {
+            const resp = await fetch(`/api/slides/${slideId}/reclassify`, { method: 'POST' });
+            if (!resp.ok) {
+                const err = await resp.json();
+                alert('重試失敗: ' + (err.detail || '未知錯誤'));
+                return;
+            }
+            const result = await resp.json();
+            const slide = slidesData.find(s => s.id === slideId);
+            if (slide) {
+                slide.classification_status = result.classification_status;
+                slide.classification_confidence = result.confidence;
+                delete slide._user_override;
+            }
+            renderGrid();
+        } catch (err) {
+            alert('重試失敗: ' + err.message);
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = '重試'; }
+        }
+    }
+
+    function renderGrid() {
+        const grid = document.getElementById('slidesGrid');
+        grid.innerHTML = '';
+
+        slidesData.forEach(slide => {
+            const eff = getEffectiveStatus(slide);
+
+            let borderClass, badgeHtml, footerHtml;
+            const conf = slide.classification_confidence;
+            const confText = conf !== null && conf !== undefined ? `${Math.round(conf * 100)}%` : '';
+            const lowConf = conf !== null && conf !== undefined && conf < 0.7;
+
+            if (eff === 'case') {
+                borderClass = 'border-teal/40 bg-teal/[0.03] hover:shadow-lg hover:shadow-teal/10';
+                badgeHtml = `<div class="absolute top-2 right-2 bg-teal text-white text-[9px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+                    <span class="material-icons-outlined text-[12px]">check</span>案例${confText ? ' ' + confText : ''}
+                </div>`;
+                footerHtml = hasWriteScope
+                    ? `<button onclick="toggleSlide(${slide.id})" class="text-[11px] text-red-400 hover:text-red-600 font-semibold flex items-center gap-1 transition-colors" title="改為非案例">
+                        <span class="material-icons-outlined text-[14px]">remove_circle_outline</span>移除
+                    </button>`
+                    : '';
+            } else if (eff === 'not_case') {
+                borderClass = 'border-red-200 bg-red-50/30 hover:shadow-md';
+                badgeHtml = `<div class="absolute top-2 right-2 bg-red-400 text-white text-[9px] font-bold px-2 py-0.5 rounded-md">非案例${confText ? ' ' + confText : ''}</div>`;
+                footerHtml = hasWriteScope
+                    ? `<button onclick="toggleSlide(${slide.id})" class="text-[11px] text-accent hover:text-accent-light font-semibold flex items-center gap-1 transition-colors" title="改為案例">
+                        <span class="material-icons-outlined text-[14px]">add_circle_outline</span>標記案例
+                    </button>`
+                    : '';
+            } else if (eff === 'error') {
+                borderClass = 'border-amber-200 bg-amber-50/30 hover:shadow-md';
+                badgeHtml = `<div class="absolute top-2 right-2 bg-amber-400 text-white text-[9px] font-bold px-2 py-0.5 rounded-md">失敗</div>`;
+                footerHtml = hasWriteScope
+                    ? `<div class="flex items-center gap-2">
+                        <button id="retry-${slide.id}" onclick="retryClassify(${slide.id})" class="text-[11px] text-amber-500 hover:text-amber-700 font-semibold flex items-center gap-1 transition-colors" title="重新分類">
+                            <span class="material-icons-outlined text-[14px]">refresh</span>重試
+                        </button>
+                        <button onclick="toggleSlide(${slide.id})" class="text-[11px] text-accent hover:text-accent-light font-semibold flex items-center gap-1 transition-colors" title="手動標記為案例">
+                            <span class="material-icons-outlined text-[14px]">add_circle_outline</span>案例
+                        </button>
+                    </div>`
+                    : '';
+            } else {
+                // skip
+                borderClass = 'border-gray-100 bg-white hover:shadow-md';
+                badgeHtml = '';
+                footerHtml = hasWriteScope
+                    ? `<button onclick="toggleSlide(${slide.id})" class="text-[10px] text-gray-400 hover:text-accent font-medium flex items-center gap-1 transition-colors">
+                        <span class="material-icons-outlined text-[14px]">add_circle_outline</span>標記
+                    </button>`
+                    : `<span class="text-[10px] text-gray-300">—</span>`;
+            }
+
+            // Low confidence warning
+            const lowConfBadge = lowConf && (eff === 'case' || eff === 'not_case')
+                ? `<div class="absolute bottom-12 left-2 bg-amber-100 text-amber-600 text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                    <span class="material-icons-outlined text-[10px]">warning</span>低信心
+                </div>`
+                : '';
+
+            const card = document.createElement('div');
+            card.className = `group relative rounded-xl overflow-hidden border transition-all duration-200 ${borderClass}`;
+            card.innerHTML = `
+                <div class="relative aspect-[4/3] overflow-hidden bg-gray-50">
+                    <img src="/uploads/${slide.image_path || ''}" alt="Slide ${slide.slide_number}"
+                        class="w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-105"
+                        onclick="window.open('/uploads/${slide.image_path || ''}', '_blank')"
+                        onerror="this.style.display='none'">
+                    <div class="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-mono font-medium px-2 py-0.5 rounded-md">
+                        Slide ${slide.slide_number}
+                    </div>
+                    ${badgeHtml}
+                    ${lowConfBadge}
+                </div>
+                <div class="px-3 py-2.5 flex items-center justify-between">
+                    ${footerHtml}
+                </div>`;
+            grid.appendChild(card);
+        });
+
+        updateStats();
+    }
+
+    async function confirmAndExtract() {
+        const btn = document.getElementById('extractBtn');
+        btn.disabled = true;
+
+        // Build classifications from current state
+        const classifications = slidesData
+            .filter(s => s.is_candidate)
+            .map(s => ({
+                slide_id: s.id,
+                is_case_page: getEffectiveStatus(s) === 'case',
+            }));
+
+        const caseCount = classifications.filter(c => c.is_case_page).length;
+        if (caseCount === 0) {
+            alert('沒有案例頁可提取');
+            btn.disabled = false;
+            return;
+        }
+
+        try {
+            // Step 1: Confirm triage
+            btn.innerHTML = '<span class="material-icons-outlined text-[18px] animate-spin">refresh</span>確認中...';
+            const confirmResp = await fetch(`/api/reports/${reportId}/triage/confirm`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ classifications }),
+            });
+            if (!confirmResp.ok) {
+                const err = await confirmResp.json();
+                alert('確認失敗: ' + (err.detail || '未知錯誤'));
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-icons-outlined text-[18px]">play_arrow</span>確認分類並開始提取';
+                return;
+            }
+
+            // Step 2: Trigger extraction
+            const extractResp = await fetch(`/api/reports/${reportId}/extract`, {
+                method: 'POST',
+            });
+            if (!extractResp.ok) {
+                const err = await extractResp.json();
+                alert('提取啟動失敗: ' + (err.detail || '未知錯誤'));
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-icons-outlined text-[18px]">play_arrow</span>確認分類並開始提取';
+                return;
+            }
+
+            // Step 3: Show progress overlay and listen to SSE
+            document.getElementById('extractOverlay').classList.remove('hidden');
+            document.getElementById('extractProgressText').textContent = `0 / ${caseCount}`;
+
+            const evtSource = new EventSource(`/api/upload/${reportId}/progress`);
+            evtSource.addEventListener('extract_progress', (e) => {
+                const data = JSON.parse(e.data);
+                document.getElementById('extractProgressText').textContent =
+                    `${data.completed} / ${data.total}`;
+            });
+            evtSource.addEventListener('complete', (e) => {
+                evtSource.close();
+                window.location.href = `/reports/${reportId}/review`;
+            });
+            evtSource.addEventListener('error', (e) => {
+                if (e.data) {
+                    const data = JSON.parse(e.data);
+                    alert('提取失敗: ' + data.message);
+                }
+                evtSource.close();
+                document.getElementById('extractOverlay').classList.add('hidden');
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-icons-outlined text-[18px]">play_arrow</span>確認分類並開始提取';
+            });
+
+        } catch (err) {
+            alert('操作失敗: ' + err.message);
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-icons-outlined text-[18px]">play_arrow</span>確認分類並開始提取';
+        }
+    }
+
+    // Initial render
+    renderGrid();
+</script>
+{% endblock %}
