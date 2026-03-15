@@ -26,7 +26,7 @@ async def _chat_embeddings(
     Qwen3-VL-Embedding requires messages format with
     continue_final_message=True and add_special_tokens=True.
     """
-    return await client.post(
+    response = await client.post(
         "/embeddings",
         cast_to=CreateEmbeddingResponse,
         body={
@@ -37,6 +37,9 @@ async def _chat_embeddings(
             "add_special_tokens": True,
         },
     )
+    if response.usage:
+        logger.debug("Embedding: {} prompt tokens", response.usage.prompt_tokens)
+    return response
 
 
 def build_case_text(case: FACase) -> str:
@@ -116,15 +119,23 @@ async def generate_embeddings_for_case(
     """Generate both text and image embeddings for a case.
 
     Returns (text_embedding, image_embedding).
+    Both operations are fault-tolerant: failures return [] without propagating.
     """
     text = build_case_text(case)
-    text_coro = (
-        generate_text_embedding(client, text) if text else asyncio.sleep(0, result=[])
-    )
-    image_coro = (
+
+    async def _safe_text_embedding() -> list[float]:
+        if not text:
+            return []
+        try:
+            return await generate_text_embedding(client, text)
+        except Exception as e:
+            logger.warning("Text embedding failed for case: {}", e)
+            return []
+
+    text_emb, image_emb = await asyncio.gather(
+        _safe_text_embedding(),
         generate_image_embedding(client, case.slide_image_path)
         if case.slide_image_path
-        else asyncio.sleep(0, result=[])
+        else asyncio.sleep(0, result=[]),
     )
-    text_emb, image_emb = await asyncio.gather(text_coro, image_coro)
     return text_emb, image_emb

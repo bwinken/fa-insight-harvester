@@ -146,11 +146,22 @@ class WeeklyPeriodCreate(BaseModel):
 
 
 # --- Confirm save (review → DB) ---
-class ConfirmSaveRequest(BaseModel):
-    """Sent when user confirms reviewed cases for saving."""
+class ConfirmCaseData(BaseModel):
+    """Individual case data submitted during confirm_and_save."""
 
-    cases: list[CaseEditRequest]
-    slide_numbers: list[int]
+    slide_number: int = 0
+    image_path: str = ""
+    raw_vlm_response: str | None = None
+    date: str | None = None
+    customer: str | None = None
+    device: str | None = None
+    model: str | None = None
+    defect_mode: str | None = None
+    defect_rate_raw: str | None = None
+    defect_lots: list[str] | None = None
+    fab_assembly: str | None = None
+    fa_status: str | None = None
+    follow_up: str | None = None
 
 
 # --- Vector similarity search ---

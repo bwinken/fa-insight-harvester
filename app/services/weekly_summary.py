@@ -95,5 +95,7 @@ async def generate_weekly_summary(
         )
         return summary
     except Exception as e:
-        logger.warning("Weekly summary generation failed for period {}: {}", period_id, e)
+        logger.warning(
+            "Weekly summary generation failed for period {}: {}", period_id, e
+        )
         return None

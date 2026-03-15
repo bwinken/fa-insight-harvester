@@ -28,6 +28,18 @@ router = APIRouter(prefix="/api", tags=["upload"])
 # In-memory store for processing progress (report_id → progress events)
 _progress_store: dict[int, asyncio.Queue] = {}
 
+# How long to keep a finished queue before evicting (seconds).
+# Gives the SSE client time to connect and drain the final event.
+_PROGRESS_TTL_SECONDS = 300
+
+
+async def _evict_progress_after(report_id: int, delay: float) -> None:
+    """Remove a progress queue after *delay* seconds if still present."""
+    await asyncio.sleep(delay)
+    removed = _progress_store.pop(report_id, None)
+    if removed is not None:
+        logger.debug("Evicted stale progress queue for report {}", report_id)
+
 
 @router.post("/upload")
 async def upload_report(
@@ -119,29 +131,48 @@ async def upload_report(
     )
     await db.commit()
 
-    # Save uploaded file
+    # Save uploaded file (sanitize filename to prevent path traversal)
+    safe_filename = Path(file.filename).name
     report_dir = settings.images_path / str(report.id)
     report_dir.mkdir(parents=True, exist_ok=True)
-    pptx_path = report_dir / file.filename
+    pptx_path = report_dir / safe_filename
 
+    # Enforce upload size limit
+    max_bytes = settings.max_upload_size_mb * 1024 * 1024
+    written = 0
     with open(pptx_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+        while chunk := await file.read(1024 * 1024):  # 1 MB chunks
+            written += len(chunk)
+            if written > max_bytes:
+                break
+            f.write(chunk)
+
+    if written > max_bytes:
+        pptx_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=413,
+            detail=f"檔案大小超過上限 ({settings.max_upload_size_mb} MB)",
+        )
 
     # Create progress queue
     queue: asyncio.Queue = asyncio.Queue()
     _progress_store[report.id] = queue
 
-    # Start background processing
-    asyncio.create_task(
+    # Start background processing (retain reference to prevent GC)
+    task = asyncio.create_task(
         _process_report(request.app, report.id, pptx_path, report_dir, queue)
     )
+    request.app.state.background_tasks.add(task)
+    task.add_done_callback(request.app.state.background_tasks.discard)
 
     return {"report_id": report.id, "status": "processing"}
 
 
 @router.get("/upload/{report_id}/progress")
-async def progress_stream(report_id: int):
+async def progress_stream(report_id: int, request: Request):
     """SSE endpoint for processing progress."""
+    require_scope(request, "read")
+
     queue = _progress_store.get(report_id)
     if queue is None:
         raise HTTPException(
@@ -149,12 +180,15 @@ async def progress_stream(report_id: int):
         )
 
     async def event_generator():
-        while True:
-            event = await queue.get()
-            yield {"event": event["type"], "data": json.dumps(event["data"])}
-            if event["type"] in ("complete", "error"):
-                _progress_store.pop(report_id, None)
-                break
+        try:
+            while True:
+                event = await queue.get()
+                yield {"event": event["type"], "data": json.dumps(event["data"])}
+                if event["type"] in ("complete", "error"):
+                    break
+        finally:
+            # Clean up on any exit (normal completion, client disconnect, error)
+            _progress_store.pop(report_id, None)
 
     return EventSourceResponse(event_generator())
 
@@ -329,12 +363,18 @@ async def _process_report(
                 }
             )
 
-    except Exception as e:
-        logger.exception("Processing failed for report {}", report_id)
+    except BaseException as e:
+        is_cancel = isinstance(e, asyncio.CancelledError)
+        if is_cancel:
+            logger.warning("Processing cancelled for report {}", report_id)
+        else:
+            logger.exception("Processing failed for report {}", report_id)
         await queue.put(
             {
                 "type": "error",
-                "data": {"message": f"處理失敗: {str(e)}"},
+                "data": {
+                    "message": "處理被取消" if is_cancel else f"處理失敗: {str(e)}"
+                },
             }
         )
         # Update report status
@@ -349,3 +389,8 @@ async def _process_report(
                     await db.commit()
         except Exception:
             logger.exception("Failed to update report status to error")
+        if is_cancel:
+            raise
+    finally:
+        # Schedule cleanup so the queue doesn't leak if no SSE client drains it
+        asyncio.create_task(_evict_progress_after(report_id, _PROGRESS_TTL_SECONDS))

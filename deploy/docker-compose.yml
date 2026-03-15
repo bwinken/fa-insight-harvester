@@ -10,9 +10,9 @@ services:
       POSTGRES_PASSWORD: ${PG_PASSWORD:?PG_PASSWORD is required}
       POSTGRES_DB: ${PG_DB:-qvault}
     volumes:
-      - ${PGDATA_DIR:-./pgdata}:/var/lib/postgresql/data
+      - ${PGDATA_DIR:-/mnt/db/qvault/pgdata}:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-ONLY", "pg_isready", "-U", "${PG_USER:-qvault}"]
+      test: ["CMD", "pg_isready", "-U", "${PG_USER:-qvault}"]
       interval: 5s
       timeout: 3s
       retries: 5

@@ -87,7 +87,16 @@ async def convert_pptx_to_images(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    stdout, stderr = await process.communicate()
+    try:
+        stdout, stderr = await asyncio.wait_for(
+            process.communicate(), timeout=settings.subprocess_timeout
+        )
+    except asyncio.TimeoutError:
+        process.kill()
+        await process.wait()
+        raise RuntimeError(
+            f"PPTX to PDF timed out after {settings.subprocess_timeout}s"
+        )
     if process.returncode != 0:
         raise RuntimeError(f"PPTX to PDF failed: {stderr.decode()}")
 
@@ -107,7 +116,14 @@ async def convert_pptx_to_images(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    stdout, stderr = await process.communicate()
+    try:
+        stdout, stderr = await asyncio.wait_for(
+            process.communicate(), timeout=settings.subprocess_timeout
+        )
+    except asyncio.TimeoutError:
+        process.kill()
+        await process.wait()
+        raise RuntimeError(f"PDF to PNG timed out after {settings.subprocess_timeout}s")
     if process.returncode != 0:
         raise RuntimeError(f"PDF to PNG failed: {stderr.decode()}")
 

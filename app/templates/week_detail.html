@@ -133,6 +133,11 @@
 
 {% block scripts %}
 <script>
+    function escHtml(val) {
+        if (val == null) return '';
+        return String(val).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
     async function loadWeekCases() {
         const container = document.getElementById('weekCases');
         try {
@@ -150,22 +155,22 @@
             let html = '<div class="bg-white rounded-lg border border-[#dadce0] divide-y divide-[#e8eaed]">';
             data.items.forEach((c, i) => {
                 html += `
-                <a href="/cases/${c.id}" class="stagger-in flex items-center justify-between px-4 py-3 hover:bg-[#f1f3f4] transition-colors group block" style="animation-delay: ${i * 0.03}s">
+                <a href="/cases/${encodeURIComponent(c.id)}" class="stagger-in flex items-center justify-between px-4 py-3 hover:bg-[#f1f3f4] transition-colors group block" style="animation-delay: ${i * 0.03}s">
                     <div class="flex items-center gap-3 min-w-0">
                         <div class="w-9 h-9 rounded-lg bg-[#e6f4ea] flex items-center justify-center shrink-0">
                             <span class="material-icons-outlined text-[#1e8e3e] text-[18px]">bug_report</span>
                         </div>
                         <div class="min-w-0">
                             <div class="text-[13px] font-medium text-[#1f1f1f] group-hover:text-accent transition-colors truncate">
-                                ${c.customer || '—'} / ${c.device || '—'}
+                                ${escHtml(c.customer) || '—'} / ${escHtml(c.device) || '—'}
                             </div>
                             <div class="text-[11px] text-[#5f6368] mt-0.5 truncate">
-                                ${c.defect_mode || '—'} · <span class="font-mono">${c.date || '—'}</span>
+                                ${escHtml(c.defect_mode) || '—'} · <span class="font-mono">${escHtml(c.date) || '—'}</span>
                             </div>
                         </div>
                     </div>
                     <div class="flex items-center gap-3 shrink-0 ml-4">
-                        <span class="text-[11px] text-[#5f6368] max-w-[200px] truncate">${c.fa_status || '—'}</span>
+                        <span class="text-[11px] text-[#5f6368] max-w-[200px] truncate">${escHtml(c.fa_status) || '—'}</span>
                         <span class="material-icons-outlined text-[#dadce0] group-hover:text-accent group-hover:translate-x-0.5 transition-all text-[18px]">chevron_right</span>
                     </div>
                 </a>`;

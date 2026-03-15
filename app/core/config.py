@@ -5,8 +5,11 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # Database
-    database_url: str = (
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/qvault"
+    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/qvault"
+    db_pool_size: int = 10
+    db_max_overflow: int = 10
+    db_pool_recycle: int = (
+        300  # seconds — recycle connections before PG/pgBouncer timeout
     )
 
     # VLM
@@ -16,6 +19,8 @@ class Settings(BaseSettings):
     vlm_embedding_model: str = "your-embedding-model-name"
     vlm_max_concurrency: int = 5
     vlm_retry_count: int = 2
+    vlm_timeout: float = 120.0  # seconds per VLM API request
+    subprocess_timeout: float = 300.0  # seconds for LibreOffice/pdftoppm
 
     # Qwen3.5 sampling — Instruct mode for general tasks
     vlm_temperature: float = 0.7
@@ -28,6 +33,9 @@ class Settings(BaseSettings):
     # Upload
     upload_dir: str = "./uploads"
     max_upload_size_mb: int = 100
+
+    # Logging
+    log_dir: str = "./logs"
 
     # Auth (JWT verification — oauth2-proxy handles the OAuth flow)
     auth_public_key_path: str = "./keys/public.pem"

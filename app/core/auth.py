@@ -5,6 +5,7 @@ Nginx injects the access token as an Authorization header via auth_request.
 This module only verifies the JWT and extracts user info.
 """
 
+import time
 from pathlib import Path
 
 import jwt
@@ -16,15 +17,19 @@ from app.core.config import settings
 from app.models.fa_case import FAUser
 
 _public_key: str | None = None
+_public_key_loaded_at: float = 0.0
+_PUBLIC_KEY_TTL: float = 3600.0  # re-read from disk every hour
 
 
 def _get_public_key() -> str:
-    global _public_key
-    if _public_key is None:
+    global _public_key, _public_key_loaded_at
+    now = time.monotonic()
+    if _public_key is None or (now - _public_key_loaded_at) > _PUBLIC_KEY_TTL:
         key_path = Path(settings.auth_public_key_path)
         if not key_path.exists():
             raise RuntimeError(f"Auth public key not found: {key_path}")
         _public_key = key_path.read_text()
+        _public_key_loaded_at = now
     return _public_key
 
 
@@ -58,6 +63,13 @@ def get_current_user_payload(request: Request) -> dict:
     2. Dev mode fallback (DEV_SKIP_AUTH=true)
     """
     if settings.dev_skip_auth:
+        import os
+
+        if os.environ.get("ENVIRONMENT") == "production":
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Security configuration error: DEV_SKIP_AUTH in production",
+            )
         return {"sub": "dev", "org_id": "dev", "scopes": ["read", "write", "admin"]}
 
     # oauth2-proxy → Nginx → Authorization: Bearer <token>

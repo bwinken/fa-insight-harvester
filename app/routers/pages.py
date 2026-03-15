@@ -1,6 +1,5 @@
 """Jinja2 page rendering routes."""
 
-import json
 from pathlib import Path
 
 from loguru import logger
@@ -139,22 +138,19 @@ async def triage_page(
     )
     slides = slides_result.scalars().all()
 
-    # Serialize slides data for JavaScript
-    slides_json = json.dumps(
-        [
-            {
-                "id": s.id,
-                "slide_number": s.slide_number,
-                "image_path": s.image_path,
-                "is_candidate": s.is_candidate,
-                "classification_status": s.classification_status,
-                "classification_confidence": s.classification_confidence,
-                "is_case_page": s.is_case_page,
-            }
-            for s in slides
-        ],
-        ensure_ascii=False,
-    )
+    # Pass raw list — Jinja2 |tojson filter handles safe serialization
+    slides_data = [
+        {
+            "id": s.id,
+            "slide_number": s.slide_number,
+            "image_path": s.image_path,
+            "is_candidate": s.is_candidate,
+            "classification_status": s.classification_status,
+            "classification_confidence": s.classification_confidence,
+            "is_case_page": s.is_case_page,
+        }
+        for s in slides
+    ]
 
     return templates.TemplateResponse(
         "triage.html",
@@ -163,7 +159,7 @@ async def triage_page(
             "user": user,
             "scopes": user.get("scopes", []),
             "report": report,
-            "slides_json": slides_json,
+            "slides_json": slides_data,
         },
     )
 

@@ -81,6 +81,16 @@ class FAReport(Base):
         back_populates="report", cascade="all, delete-orphan"
     )
 
+    __table_args__ = (
+        Index(
+            "idx_reports_period_filename",
+            "weekly_period_id",
+            "filename",
+            unique=True,
+        ),
+        Index("idx_reports_weekly_period", "weekly_period_id"),
+    )
+
 
 class FAReportSlide(Base):
     """Every slide in an uploaded report — both case and non-case pages."""
@@ -164,14 +174,12 @@ class FACase(Base):
     )
 
     report: Mapped["FAReport"] = relationship(back_populates="cases")
-    confirmed_by: Mapped["FAUser | None"] = relationship(
-        foreign_keys=[confirmed_by_id]
-    )
-    updated_by: Mapped["FAUser | None"] = relationship(
-        foreign_keys=[updated_by_id]
-    )
+    confirmed_by: Mapped["FAUser | None"] = relationship(foreign_keys=[confirmed_by_id])
+    updated_by: Mapped["FAUser | None"] = relationship(foreign_keys=[updated_by_id])
 
     __table_args__ = (
+        Index("idx_cases_report", "report_id"),
+        Index("idx_cases_created_at", "created_at"),
         Index(
             "idx_cases_fts",
             text(
@@ -185,6 +193,18 @@ class FACase(Base):
             ),
             postgresql_using="gin",
         ),
+        Index(
+            "idx_cases_customer_trgm",
+            "customer",
+            postgresql_using="gin",
+            postgresql_ops={"customer": "gin_trgm_ops"},
+        ),
+        Index(
+            "idx_cases_device_trgm",
+            "device",
+            postgresql_using="gin",
+            postgresql_ops={"device": "gin_trgm_ops"},
+        ),
     )
 
 
@@ -194,9 +214,7 @@ class FACaseFieldLog(Base):
     __tablename__ = "fa_case_field_logs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    case_id: Mapped[int] = mapped_column(
-        ForeignKey("fa_cases.id", ondelete="CASCADE")
-    )
+    case_id: Mapped[int] = mapped_column(ForeignKey("fa_cases.id", ondelete="CASCADE"))
     field_name: Mapped[str] = mapped_column(String(32))
     old_value: Mapped[str | None] = mapped_column(Text)
     new_value: Mapped[str | None] = mapped_column(Text)

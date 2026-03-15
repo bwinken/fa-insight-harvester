@@ -13,7 +13,11 @@ from app.core.auth import require_scope
 from app.core.config import settings
 from app.models.database import get_db
 from app.models.fa_case import FAReport, FAReportSlide
-from app.routers.upload import _progress_store
+from app.routers.upload import (
+    _PROGRESS_TTL_SECONDS,
+    _evict_progress_after,
+    _progress_store,
+)
 from app.schemas.fa_case import SlideTriageInfo, TriageConfirmRequest
 from app.services.data_cleaner import clean_extracted_data
 from app.services.vlm_extractor import (
@@ -147,8 +151,12 @@ async def trigger_extraction(
     queue: asyncio.Queue = asyncio.Queue()
     _progress_store[report_id] = queue
 
-    # Start background extraction
-    asyncio.create_task(_run_extraction(request.app, report_id, case_slides, queue))
+    # Start background extraction (retain reference to prevent GC)
+    task = asyncio.create_task(
+        _run_extraction(request.app, report_id, case_slides, queue)
+    )
+    request.app.state.background_tasks.add(task)
+    task.add_done_callback(request.app.state.background_tasks.discard)
 
     return {
         "report_id": report_id,
@@ -270,9 +278,20 @@ async def _run_extraction(
                 }
             )
 
-    except Exception as e:
-        logger.exception("Extraction failed for report {}", report_id)
-        await queue.put({"type": "error", "data": {"message": f"提取失敗: {str(e)}"}})
+    except BaseException as e:
+        is_cancel = isinstance(e, asyncio.CancelledError)
+        if is_cancel:
+            logger.warning("Extraction cancelled for report {}", report_id)
+        else:
+            logger.exception("Extraction failed for report {}", report_id)
+        await queue.put(
+            {
+                "type": "error",
+                "data": {
+                    "message": "提取被取消" if is_cancel else f"提取失敗: {str(e)}"
+                },
+            }
+        )
         try:
             async with app.state.db_session() as db:
                 result = await db.execute(
@@ -280,10 +299,15 @@ async def _run_extraction(
                 )
                 report = result.scalar_one_or_none()
                 if report:
-                    report.status = "triage"
+                    report.status = "error" if is_cancel else "triage"
                     await db.commit()
         except Exception:
             logger.exception("Failed to revert report status after extraction error")
+        if is_cancel:
+            raise
+    finally:
+        # Schedule cleanup so the queue doesn't leak if no SSE client drains it
+        asyncio.create_task(_evict_progress_after(report_id, _PROGRESS_TTL_SECONDS))
 
 
 @router.post("/slides/{slide_id}/reclassify")

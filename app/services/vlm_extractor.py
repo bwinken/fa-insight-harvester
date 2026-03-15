@@ -12,11 +12,31 @@ from collections.abc import Callable
 from pathlib import Path
 
 from loguru import logger
-from openai import AsyncOpenAI
+from openai import (
+    APIConnectionError,
+    APITimeoutError,
+    AsyncOpenAI,
+    InternalServerError,
+    RateLimitError,
+)
 
 from app.core.config import settings
 from app.schemas.fa_case import VLMClassificationResult, VLMSlideResult
 from app.services.image_utils import image_to_base64
+
+# Errors worth retrying (transient); everything else fails immediately
+_RETRYABLE = (APIConnectionError, APITimeoutError, RateLimitError, InternalServerError)
+
+# Global semaphore — shared across all concurrent uploads/extractions
+_vlm_semaphore: asyncio.Semaphore | None = None
+
+
+def _get_semaphore() -> asyncio.Semaphore:
+    global _vlm_semaphore
+    if _vlm_semaphore is None:
+        _vlm_semaphore = asyncio.Semaphore(settings.vlm_max_concurrency)
+    return _vlm_semaphore
+
 
 # ---------------------------------------------------------------------------
 # Prompts
@@ -83,6 +103,14 @@ async def classify_single_slide(
         },
     )
 
+    if response.usage:
+        logger.debug(
+            "Slide {} classify: {} prompt + {} completion tokens",
+            slide_number,
+            response.usage.prompt_tokens,
+            response.usage.completion_tokens,
+        )
+
     result = response.choices[0].message.parsed
     if result is None:
         raw = response.choices[0].message.content or ""
@@ -104,7 +132,7 @@ async def classify_slides_batch(
     Returns:
         List of (slide_number, result_or_none, raw_json_or_none, error_or_none).
     """
-    semaphore = asyncio.Semaphore(settings.vlm_max_concurrency)
+    semaphore = _get_semaphore()
     total = len(image_paths)
     completed = 0
 
@@ -122,25 +150,31 @@ async def classify_slides_batch(
                         await on_progress(completed, total, slide_num)
                     raw = result.model_dump_json()
                     return (slide_num, result, raw, None)
-                except Exception as e:
+                except _RETRYABLE as e:
                     last_error = str(e)
                     if attempt < settings.vlm_retry_count:
                         logger.warning(
-                            "Slide {} classify attempt {} failed: {}, retrying...",
+                            "Slide {} classify attempt {} failed (retryable): {}, retrying...",
                             slide_num,
                             attempt + 1,
                             e,
                         )
                         await asyncio.sleep(1 * (attempt + 1))
+                    else:
+                        break
+                except Exception as e:
+                    # Non-retryable error (parse failure, file error, etc.)
+                    last_error = str(e)
+                    logger.error(
+                        "Slide {} classification failed (non-retryable): {}",
+                        slide_num,
+                        e,
+                    )
+                    break
 
             completed += 1
             if on_progress:
                 await on_progress(completed, total, slide_num)
-            logger.error(
-                "Slide {} classification failed after retries: {}",
-                slide_num,
-                last_error,
-            )
             return (slide_num, None, None, last_error)
 
     tasks = [_process_one(img, num) for img, num in zip(image_paths, slide_numbers)]
@@ -187,6 +221,14 @@ async def extract_single_slide(
         },
     )
 
+    if response.usage:
+        logger.debug(
+            "Slide {} extract: {} prompt + {} completion tokens",
+            slide_number,
+            response.usage.prompt_tokens,
+            response.usage.completion_tokens,
+        )
+
     result = response.choices[0].message.parsed
     if result is None:
         raw = response.choices[0].message.content or ""
@@ -206,7 +248,7 @@ async def extract_slides_batch(
     Returns:
         List of (slide_number, result_or_none, raw_response_or_none, error_or_none).
     """
-    semaphore = asyncio.Semaphore(settings.vlm_max_concurrency)
+    semaphore = _get_semaphore()
     total = len(image_paths)
     completed = 0
 
@@ -224,25 +266,30 @@ async def extract_slides_batch(
                         await on_progress(completed, total, slide_num)
                     raw = result.model_dump_json()
                     return (slide_num, result, raw, None)
-                except Exception as e:
+                except _RETRYABLE as e:
                     last_error = str(e)
                     if attempt < settings.vlm_retry_count:
                         logger.warning(
-                            "Slide {} extract attempt {} failed: {}, retrying...",
+                            "Slide {} extract attempt {} failed (retryable): {}, retrying...",
                             slide_num,
                             attempt + 1,
                             e,
                         )
                         await asyncio.sleep(1 * (attempt + 1))
+                    else:
+                        break
+                except Exception as e:
+                    last_error = str(e)
+                    logger.error(
+                        "Slide {} extraction failed (non-retryable): {}",
+                        slide_num,
+                        e,
+                    )
+                    break
 
             completed += 1
             if on_progress:
                 await on_progress(completed, total, slide_num)
-            logger.error(
-                "Slide {} extraction failed after retries: {}",
-                slide_num,
-                last_error,
-            )
             return (slide_num, None, None, last_error)
 
     tasks = [_process_one(img, num) for img, num in zip(image_paths, slide_numbers)]

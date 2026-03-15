@@ -2,6 +2,7 @@
 
 import logging
 import sys
+from pathlib import Path
 
 from loguru import logger
 
@@ -48,8 +49,10 @@ def setup_logging() -> None:
     )
 
     # Rotating file handler
+    log_dir = Path(settings.log_dir)
+    log_dir.mkdir(parents=True, exist_ok=True)
     logger.add(
-        "logs/app.log",
+        str(log_dir / "app.log"),
         rotation="10 MB",
         retention="30 days",
         compression="gz",

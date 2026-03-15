@@ -194,12 +194,12 @@
                 ? new Date(c.updated_at).toLocaleString('zh-TW', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
                 : '—';
 
-            html += `<tr data-id="${c.id}">
-                <td class="px-2.5 text-[12px] text-[#5f6368] font-mono">${c.id}</td>
+            html += `<tr data-id="${escAttr(c.id)}">
+                <td class="px-2.5 text-[12px] text-[#5f6368] font-mono">${escHtml(c.id)}</td>
                 ${EDITABLE_FIELDS.map(f =>
                     `<td><input class="cell-input" data-field="${f}" data-original="${escAttr(c[f])}" value="${escAttr(c[f])}" oninput="markDirty(${c.id}, '${f}', this)"></td>`
                 ).join('')}
-                <td class="px-2.5 text-[11px] text-[#5f6368] font-mono updated-cell">${updatedStr}</td>
+                <td class="px-2.5 text-[11px] text-[#5f6368] font-mono updated-cell">${escHtml(updatedStr)}</td>
                 <td class="px-2.5 text-center">
                     <div class="flex items-center justify-center gap-1">
                         <button class="save-btn hidden text-[11px] text-white bg-accent hover:bg-accent-light px-2.5 py-1 rounded font-medium transition-colors"
@@ -228,7 +228,12 @@
 
     function escAttr(val) {
         if (val == null) return '';
-        return String(val).replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        return String(val).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function escHtml(val) {
+        if (val == null) return '';
+        return String(val).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     function markDirty(caseId, field, input) {
@@ -315,19 +320,19 @@
             let html = '<div class="space-y-3">';
             logs.forEach(log => {
                 const dt = new Date(log.edited_at).toLocaleString('zh-TW');
-                const label = FIELD_LABELS[log.field_name] || log.field_name;
+                const label = FIELD_LABELS[log.field_name] || escHtml(log.field_name);
                 html += `
                 <div class="border border-[#e8eaed] rounded-lg p-3">
                     <div class="flex items-center justify-between mb-1.5">
                         <span class="text-[12px] font-semibold text-[#1f1f1f]">${label}</span>
-                        <span class="text-[11px] text-[#5f6368] font-mono">${dt}</span>
+                        <span class="text-[11px] text-[#5f6368] font-mono">${escHtml(dt)}</span>
                     </div>
                     <div class="flex items-center gap-2 text-[12px]">
-                        <span class="text-red-500 line-through">${log.old_value || '(空)'}</span>
+                        <span class="text-red-500 line-through">${escHtml(log.old_value) || '(空)'}</span>
                         <span class="material-icons-outlined text-[14px] text-[#5f6368]">arrow_forward</span>
-                        <span class="text-teal font-medium">${log.new_value || '(空)'}</span>
+                        <span class="text-teal font-medium">${escHtml(log.new_value) || '(空)'}</span>
                     </div>
-                    <div class="text-[11px] text-[#80868b] mt-1">by ${log.edited_by}</div>
+                    <div class="text-[11px] text-[#80868b] mt-1">by ${escHtml(log.edited_by)}</div>
                 </div>`;
             });
             html += '</div>';

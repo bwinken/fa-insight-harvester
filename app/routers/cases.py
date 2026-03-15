@@ -1,5 +1,6 @@
 """Case CRUD, review confirmation, and search routes."""
 
+import asyncio
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -8,6 +9,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_or_create_user, require_scope
+from app.core.config import settings
 from app.models.database import get_db
 from app.models.fa_case import (
     FACase,
@@ -17,7 +19,7 @@ from app.models.fa_case import (
     FAUser,
     FAWeeklyPeriod,
 )
-from app.schemas.fa_case import CaseEditRequest, SimilarCaseResult
+from app.schemas.fa_case import CaseEditRequest, ConfirmCaseData, SimilarCaseResult
 from app.services.audit import log_action
 from app.services.embedding import (
     build_case_text,
@@ -32,7 +34,7 @@ router = APIRouter(prefix="/api", tags=["cases"])
 @router.post("/reports/{report_id}/confirm")
 async def confirm_and_save(
     report_id: int,
-    cases_data: list[dict],
+    cases_data: list[ConfirmCaseData],
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
@@ -49,26 +51,22 @@ async def confirm_and_save(
 
     created_cases = []
     for case_data in cases_data:
-        slide_number = case_data.pop("slide_number", 0)
-        image_path = case_data.pop("image_path", "")
-        raw_vlm = case_data.pop("raw_vlm_response", None)
-
         case = FACase(
             report_id=report_id,
             confirmed_by_id=user.id,
-            slide_number=slide_number,
-            slide_image_path=image_path,
-            date=case_data.get("date"),
-            customer=case_data.get("customer"),
-            device=case_data.get("device"),
-            model=case_data.get("model"),
-            defect_mode=case_data.get("defect_mode"),
-            defect_rate_raw=case_data.get("defect_rate_raw"),
-            defect_lots=case_data.get("defect_lots", []),
-            fab_assembly=case_data.get("fab_assembly"),
-            fa_status=case_data.get("fa_status"),
-            follow_up=case_data.get("follow_up"),
-            raw_vlm_response=raw_vlm,
+            slide_number=case_data.slide_number,
+            slide_image_path=case_data.image_path,
+            date=case_data.date,
+            customer=case_data.customer,
+            device=case_data.device,
+            model=case_data.model,
+            defect_mode=case_data.defect_mode,
+            defect_rate_raw=case_data.defect_rate_raw,
+            defect_lots=case_data.defect_lots or [],
+            fab_assembly=case_data.fab_assembly,
+            fa_status=case_data.fa_status,
+            follow_up=case_data.follow_up,
+            raw_vlm_response=case_data.raw_vlm_response,
         )
         db.add(case)
         created_cases.append(case)
@@ -100,27 +98,53 @@ async def confirm_and_save(
             slide_rec.linked_case_id = case.id
     await db.commit()
 
-    # Generate embeddings in background (don't block the response)
-    vlm_client = request.app.state.vlm_client
-    for case in created_cases:
-        await db.refresh(case)
-        try:
-            text_emb, image_emb = await generate_embeddings_for_case(vlm_client, case)
-            if text_emb:
-                case.text_embedding = text_emb
-            if image_emb:
-                case.image_embedding = image_emb
-            await db.commit()
-        except Exception as e:
-            logger.warning("Embedding generation failed for case {}: {}", case.id, e)
+    # Clean up temporary extraction results — data is now in the DB
+    results_path = settings.images_path / str(report_id) / "extraction_results.json"
+    results_path.unlink(missing_ok=True)
 
-    # Regenerate weekly summary (covers new + existing cases in this period)
-    try:
-        await generate_weekly_summary(vlm_client, db, report.weekly_period_id)
-    except Exception as e:
-        logger.warning("Weekly summary generation failed: {}", e)
+    # Generate embeddings + weekly summary in background (don't block the response)
+    case_ids = [c.id for c in created_cases]
+    weekly_period_id = report.weekly_period_id
+    task = asyncio.create_task(
+        _generate_embeddings_background(request.app, case_ids, weekly_period_id)
+    )
+    request.app.state.background_tasks.add(task)
+    task.add_done_callback(request.app.state.background_tasks.discard)
 
     return {"status": "saved", "case_count": len(created_cases)}
+
+
+async def _generate_embeddings_background(
+    app, case_ids: list[int], weekly_period_id: int | None
+):
+    """Background task: generate embeddings for confirmed cases + optional weekly summary."""
+    async with app.state.db_session() as db:
+        for case_id in case_ids:
+            try:
+                result = await db.execute(select(FACase).where(FACase.id == case_id))
+                case = result.scalar_one_or_none()
+                if not case:
+                    continue
+                text_emb, image_emb = await generate_embeddings_for_case(
+                    app.state.vlm_client, case
+                )
+                if text_emb:
+                    case.text_embedding = text_emb
+                if image_emb:
+                    case.image_embedding = image_emb
+                await db.commit()
+            except Exception as e:
+                logger.warning(
+                    "Embedding generation failed for case {}: {}", case_id, e
+                )
+
+        if weekly_period_id is not None:
+            try:
+                await generate_weekly_summary(
+                    app.state.vlm_client, db, weekly_period_id
+                )
+            except Exception as e:
+                logger.warning("Weekly summary generation failed: {}", e)
 
 
 @router.get("/cases")
@@ -561,6 +585,35 @@ async def search_similar_cases(
         )
         for case, distance in rows
     ]
+
+
+@router.post("/cases/regenerate-embeddings")
+async def regenerate_missing_embeddings(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    limit: int = Query(50, ge=1, le=200, description="Max cases to process"),
+):
+    """Find confirmed cases with missing text embeddings and regenerate them."""
+    require_scope(request, "admin")
+
+    result = await db.execute(
+        select(FACase.id)
+        .where(FACase.confirmed_by_id.isnot(None))
+        .where(FACase.text_embedding.is_(None))
+        .limit(limit)
+    )
+    case_ids = [row[0] for row in result.all()]
+
+    if not case_ids:
+        return {"status": "ok", "message": "No cases with missing embeddings"}
+
+    task = asyncio.create_task(
+        _generate_embeddings_background(request.app, case_ids, weekly_period_id=None)
+    )
+    request.app.state.background_tasks.add(task)
+    task.add_done_callback(request.app.state.background_tasks.discard)
+
+    return {"status": "queued", "case_count": len(case_ids)}
 
 
 @router.get("/weeks")

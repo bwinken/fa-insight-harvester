@@ -87,7 +87,7 @@
     const hasWriteScope = {{ "true" if "write" in scopes|default([]) else "false" }};
 
     // Slide data from server (will be modified client-side)
-    let slidesData = {{ slides_json|safe }};
+    let slidesData = {{ slides_json|tojson }};
 
     function updateStats() {
         let caseN = 0, notCaseN = 0, errorN = 0, skipN = 0;
