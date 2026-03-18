@@ -141,15 +141,14 @@ erDiagram
 
 ```
 uploads/images/{report_id}/
-  ├── weekly_report_w11.pptx      ← 原始 PPTX（保留）
   ├── weekly_report_w11.pdf       ← 轉換後 PDF（保留，供預覽/下載）
   ├── slide-01.png                ← 所有頁面的 PNG（含非案例頁）
   ├── slide-02.png
   ├── ...
-  └── extraction_results.json     ← VLM 提取結果（審核用）
+  └── extraction_results.json     ← VLM 提取結果（審核用，7 天後自動清理）
 ```
 
-FastAPI 透過 `StaticFiles(directory=uploads_dir)` mount 在 `/uploads` 路徑，前端以 `/uploads/images/{report_id}/slide-XX.png` 存取圖片。
+原始 PPTX 在轉換為 PDF + PNG 後自動刪除。FastAPI 透過 auth-gated endpoint 在 `/uploads` 路徑提供圖片存取，前端以 `/uploads/images/{report_id}/slide-XX.png` 載入圖片。
 
 每頁投影片在 `fa_report_slides` 表中都有對應記錄，案例頁透過 `linked_case_id` 連結到 `fa_cases`。
 
@@ -249,7 +248,6 @@ qvault/
 ├── deploy/
 │   ├── setup.sh                   # 一鍵部署腳本（互動式）
 │   ├── docker-compose.yml         # PostgreSQL + oauth2-proxy
-│   ├── .env.example               # Docker Compose 環境變數範本
 │   ├── qvault.service             # systemd user service
 │   ├── nginx.conf                 # Nginx 模板（含 auth_request）
 │   └── INSTALL.md                 # 完整部署指南
@@ -259,16 +257,18 @@ qvault/
 
 ## 環境變數
 
-所有設定皆可透過 `.env` 檔案或環境變數覆蓋（參見 `.env.example`）：
+所有設定集中在 **一個 `.env` 檔**，由 App、Docker Compose、systemd 共用（參見 `.env.example`）：
 
 | 類別 | 變數 | 說明 |
 |------|------|------|
-| 資料庫 | `DATABASE_URL` | PostgreSQL 連線字串 |
+| 資料根目錄 | `DATA_DIR` | 設定一次，`UPLOAD_DIR`、`LOG_DIR`、`AUTH_PUBLIC_KEY_PATH` 自動衍生 |
+| PostgreSQL | `PG_USER`, `PG_PASSWORD`, `PG_DB`, `PG_PORT` | `DATABASE_URL` 自動衍生，也可直接覆寫 |
 | VLM | `VLM_BASE_URL`, `VLM_API_KEY`, `VLM_MODEL`, `VLM_EMBEDDING_MODEL` | vLLM 伺服器設定 |
 | VLM 處理 | `VLM_MAX_CONCURRENCY`, `VLM_RETRY_COUNT` | 並行度與重試 |
 | VLM Sampling | `VLM_TEMPERATURE`, `VLM_TOP_P`, `VLM_TOP_K`, `VLM_MIN_P`, `VLM_PRESENCE_PENALTY`, `VLM_REPETITION_PENALTY` | 推論參數 |
-| 上傳 | `UPLOAD_DIR`, `MAX_UPLOAD_SIZE_MB` | 檔案儲存位置與大小限制 |
-| 認證 | `AUTH_PUBLIC_KEY_PATH`, `DEV_SKIP_AUTH` | JWT 公鑰路徑、開發模式跳過驗證 |
+| 上傳 | `MAX_UPLOAD_SIZE_MB` | 檔案大小限制（路徑由 `DATA_DIR` 衍生） |
+| 認證 | `DEV_SKIP_AUTH` | 開發模式跳過驗證（公鑰路徑由 `DATA_DIR` 衍生） |
+| OIDC | `OIDC_ISSUER_URL`, `OAUTH2_CLIENT_ID`, `OAUTH2_CLIENT_SECRET` | oauth2-proxy 使用 |
 
 ## 快速開始
 
@@ -278,7 +278,7 @@ uv sync
 
 # 設定環境變數
 cp .env.example .env
-# 編輯 .env（至少設定 DATABASE_URL 和 VLM 位址）
+# 編輯 .env（至少設定 PG_PASSWORD 和 VLM_BASE_URL / VLM_MODEL）
 
 # 資料庫遷移
 uv run alembic upgrade head
