@@ -24,7 +24,7 @@ services:
     restart: unless-stopped
     env_file: ../.env
     ports:
-      - "127.0.0.1:4180:4180"
+      - "127.0.0.1:${OAUTH2_PROXY_PORT:-4180}:4180"
     environment:
       # OIDC provider (Auth Center)
       OAUTH2_PROXY_PROVIDER: oidc

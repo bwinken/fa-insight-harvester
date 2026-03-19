@@ -275,7 +275,9 @@ echo "=== 9. 安裝 Nginx 設定 ==="
 if command -v nginx &>/dev/null; then
     # 替換模板變數
     DOMAIN="${DOMAIN:-your-server-name}"
+    OAUTH2_PORT="${OAUTH2_PROXY_PORT:-4180}"
     sed -e "s|your-server-name|$DOMAIN|g" \
+        -e "s|__OAUTH2_PROXY_PORT__|$OAUTH2_PORT|g" \
         "$DEPLOY_DIR/nginx.conf" \
         | sudo tee /etc/nginx/sites-available/$APP_NAME > /dev/null
     sudo ln -sf /etc/nginx/sites-available/$APP_NAME /etc/nginx/sites-enabled/$APP_NAME
@@ -300,7 +302,7 @@ echo "    logs/     — 應用日誌"
 echo "    keys/     — Auth Center 公鑰"
 echo "    pgdata/   — PostgreSQL 資料"
 echo ""
-echo "  Docker：PostgreSQL (:${PG_PORT}) + oauth2-proxy (:4180)"
+echo "  Docker：PostgreSQL (:${PG_PORT}) + oauth2-proxy (:${OAUTH2_PROXY_PORT:-4180})"
 echo "  App：http://127.0.0.1:8000"
 echo ""
 echo "服務管理："
