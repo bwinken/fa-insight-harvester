@@ -223,7 +223,8 @@ qvault/
 │   │   ├── upload.py              # 上傳 + SSE 進度 + 投影片記錄
 │   │   ├── triage.py              # Stage 1 分類確認
 │   │   ├── cases.py               # 案例 CRUD + 語義搜尋 + 稽核
-│   │   └── pages.py               # 頁面渲染
+│   │   ├── pages.py               # 頁面渲染
+│   │   └── mock.py                # Mock 資料路由（MOCK_DATA=true 時使用）
 │   ├── services/
 │   │   ├── pptx_parser.py         # PPTX → PDF → PNG + 預篩選
 │   │   ├── vlm_extractor.py       # VLM 分類 + 結構化提取
@@ -268,6 +269,7 @@ qvault/
 | VLM Sampling | `VLM_TEMPERATURE`, `VLM_TOP_P`, `VLM_TOP_K`, `VLM_MIN_P`, `VLM_PRESENCE_PENALTY`, `VLM_REPETITION_PENALTY` | 推論參數 |
 | 上傳 | `MAX_UPLOAD_SIZE_MB` | 檔案大小限制（路徑由 `DATA_DIR` 衍生） |
 | 認證 | `DEV_SKIP_AUTH` | 開發模式跳過驗證（公鑰路徑由 `DATA_DIR` 衍生） |
+| Mock | `MOCK_DATA` | 啟用 mock 資料模式，跳過 DB/VLM（用於 UI 開發、截圖、Demo） |
 | OIDC | `OIDC_ISSUER_URL`, `OAUTH2_CLIENT_ID`, `OAUTH2_CLIENT_SECRET` | oauth2-proxy 使用 |
 
 ## 快速開始
@@ -289,5 +291,15 @@ DEV_SKIP_AUTH=true uv run fastapi run app/main.py
 # 或使用 uvicorn（支援 --reload）
 uv run uvicorn app.main:app --reload
 ```
+
+### Mock 資料模式
+
+不需要 PostgreSQL 或 VLM，純 UI 展示用：
+
+```bash
+MOCK_DATA=true DEV_SKIP_AUTH=true uv run uvicorn app.main:app --reload
+```
+
+啟用後所有頁面和 API 回傳預設 demo 資料，適用於 UI 開發、截圖和 Demo。關閉只需移除 `MOCK_DATA=true` 或設為 `false`。
 
 完整部署（含 oauth2-proxy + PostgreSQL Docker）請執行 `bash deploy/setup.sh`，詳見 [deploy/INSTALL.md](deploy/INSTALL.md)。

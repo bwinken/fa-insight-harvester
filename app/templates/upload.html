@@ -2,69 +2,67 @@
 {% block title %}上傳周報 — QVault{% endblock %}
 
 {% block content %}
-<!-- Header -->
-<div class="mb-10">
-    <h1 class="text-[26px] font-bold text-gray-900 tracking-tight">上傳周報</h1>
-    <p class="text-[13px] text-gray-400 mt-1 font-medium">上傳 .pptx 格式的失效分析周報，系統將自動提取案例</p>
+<div class="page-header">
+    <h1>上傳周報</h1>
+    <div class="page-header-actions">
+        <a href="/" class="btn btn-outline">
+            <span class="material-icons-outlined" style="font-size: 18px;">arrow_back</span>
+            返回首頁
+        </a>
+    </div>
 </div>
 
-<div class="max-w-2xl">
-    <form id="uploadForm" class="card bg-surface-card rounded-2xl p-8 space-y-7">
+<!-- Step 1: Upload form -->
+<div class="card" id="uploadCard" style="max-width: 720px;">
+    <form id="uploadForm">
         <!-- Week selection -->
-        <div>
-            <label class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3 block">周次選擇</label>
-            <div class="grid grid-cols-2 gap-4">
+        <div style="margin-bottom: 24px;">
+            <p style="font-size: 14px; font-weight: 500; color: #80868b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px;">周次選擇</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                 <div>
-                    <label class="block text-[13px] font-medium text-gray-600 mb-1.5">年度</label>
-                    <input type="number" id="year" name="year"
-                        class="w-full input-field rounded-xl px-4 py-2.5 text-[13px] font-mono">
+                    <label style="display: block; font-size: 13px; font-weight: 500; color: #3c4043; margin-bottom: 6px;">年度</label>
+                    <input type="number" id="year" name="year" class="input-field" style="width: 100%;">
                 </div>
                 <div>
-                    <label class="block text-[13px] font-medium text-gray-600 mb-1.5">第幾周</label>
-                    <input type="number" id="week_number" name="week_number" min="1" max="53"
-                        class="w-full input-field rounded-xl px-4 py-2.5 text-[13px] font-mono">
+                    <label style="display: block; font-size: 13px; font-weight: 500; color: #3c4043; margin-bottom: 6px;">第幾周</label>
+                    <input type="number" id="week_number" name="week_number" min="1" max="53" class="input-field" style="width: 100%;">
                 </div>
             </div>
         </div>
 
         <!-- File upload -->
-        <div>
-            <label class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3 block">檔案上傳</label>
-            <div id="dropZone"
-                class="border-2 border-dashed border-surface-deep rounded-2xl p-12 text-center hover:border-accent/40 hover:bg-accent/[0.02] transition-all duration-300 cursor-pointer group relative overflow-hidden">
-                <div class="absolute inset-0 bg-gradient-to-br from-accent/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <div class="flex flex-col items-center relative">
-                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent/8 to-accent/[0.02] flex items-center justify-center mb-4 group-hover:from-accent/15 group-hover:scale-105 transition-all duration-300 border border-accent/[0.06]">
-                        <span class="material-icons-outlined text-accent/70 text-[28px]">upload_file</span>
-                    </div>
-                    <p class="text-[13px] text-gray-500 font-medium" id="dropText">拖放 .pptx 檔案到這裡</p>
-                    <p class="text-[11px] text-gray-300 mt-1.5 font-medium">或點擊選擇檔案</p>
-                </div>
-                <input type="file" id="fileInput" name="file" accept=".pptx" class="hidden">
+        <div style="margin-bottom: 24px;">
+            <p style="font-size: 14px; font-weight: 500; color: #80868b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px;">檔案上傳</p>
+            <div class="upload-area" id="dropZone">
+                <span class="material-icons-outlined" style="font-size: 48px; color: #dadce0; margin-bottom: 12px; display: block;">upload_file</span>
+                <p style="font-size: 16px; color: #3c4043; margin: 0 0 4px;" id="dropText">拖放 .pptx 檔案到這裡，或點擊選擇</p>
+                <p style="font-size: 13px; color: #5f6368; margin: 0;">支援格式: .pptx</p>
+                <input type="file" id="fileInput" name="file" accept=".pptx" style="display: none;">
             </div>
         </div>
 
-        <button type="submit" id="submitBtn"
-            class="w-full bg-gradient-to-r from-accent to-accent-light text-white py-3 rounded-xl font-semibold text-[13px] hover:shadow-lg hover:shadow-accent/20 transition-all duration-300 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:shadow-none"
-            disabled>
-            上傳並開始處理
-        </button>
+        <div style="display: flex; justify-content: flex-end;">
+            <button type="submit" id="submitBtn" class="btn btn-primary" disabled style="opacity: 0.5;">
+                <span class="material-icons-outlined" style="font-size: 18px;">cloud_upload</span>
+                上傳並開始處理
+            </button>
+        </div>
     </form>
+</div>
 
-    <!-- Progress section -->
-    <div id="progressSection" class="hidden mt-6 card bg-surface-card rounded-2xl p-8">
-        <div class="flex items-center gap-3 mb-5">
-            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-accent/10 to-accent/[0.04] flex items-center justify-center">
-                <span class="material-icons-outlined text-accent text-[18px] animate-spin" style="animation-duration: 2s;">hourglass_top</span>
+<!-- Progress section -->
+<div id="progressSection" style="display: none; max-width: 720px; margin-top: 16px;">
+    <div class="card">
+        <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">
+            <div class="spinner"></div>
+            <div>
+                <p style="font-size: 15px; font-weight: 500; color: #202124; margin: 0;">處理進度</p>
+                <p id="progressText" style="font-size: 13px; color: #5f6368; margin: 2px 0 0;"></p>
             </div>
-            <h2 class="text-[14px] font-semibold text-gray-800">處理進度</h2>
         </div>
-        <div id="progressMessages" class="space-y-2 mb-5 max-h-44 overflow-y-auto pr-1"></div>
-        <div>
-            <div class="w-full bg-surface rounded-full h-2 overflow-hidden">
-                <div id="progressBar" class="bg-gradient-to-r from-accent to-accent-light h-2 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
-            </div>
-            <p id="progressText" class="text-[11px] text-gray-400 mt-2 font-mono font-medium"></p>
+        <div id="progressMessages" style="max-height: 180px; overflow-y: auto; margin-bottom: 16px;"></div>
+        <div style="background: #f1f3f4; border-radius: 4px; height: 8px; overflow: hidden;">
+            <div id="progressBar" style="background: #1a73e8; height: 100%; width: 0%; transition: width 0.5s ease; border-radius: 4px;"></div>
         </div>
     </div>
 </div>
@@ -90,14 +88,14 @@
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
-        dropZone.classList.add('border-accent', 'bg-accent/[0.04]');
+        dropZone.classList.add('dragover');
     });
     dropZone.addEventListener('dragleave', () => {
-        dropZone.classList.remove('border-accent', 'bg-accent/[0.04]');
+        dropZone.classList.remove('dragover');
     });
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
-        dropZone.classList.remove('border-accent', 'bg-accent/[0.04]');
+        dropZone.classList.remove('dragover');
         if (e.dataTransfer.files.length > 0) {
             fileInput.files = e.dataTransfer.files;
             onFileSelected();
@@ -109,17 +107,17 @@
         if (fileInput.files.length > 0) {
             const file = fileInput.files[0];
             dropText.textContent = file.name;
-            dropZone.classList.add('border-teal/40', 'bg-teal/[0.03]');
-            dropZone.classList.remove('border-surface-deep');
-            dropZone.querySelector('.text-\\[11px\\]')?.classList.add('hidden');
+            dropZone.style.borderColor = '#1e8e3e';
+            dropZone.style.background = '#e6f4ea';
             submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
         }
     }
 
     // Upload
     async function doUpload(overwrite = false) {
         submitBtn.disabled = true;
-        submitBtn.textContent = '上傳中...';
+        submitBtn.innerHTML = '<span class="material-icons-outlined" style="font-size: 18px;">hourglass_top</span> 上傳中...';
 
         const formData = new FormData();
         formData.append('file', fileInput.files[0]);
@@ -133,7 +131,6 @@
             const data = await resp.json();
 
             if (resp.status === 409) {
-                // Duplicate detected — show confirmation dialog
                 const detail = data.detail;
                 const msg = `${detail.message}\n\n` +
                     `狀態: ${detail.existing_status}\n` +
@@ -143,7 +140,7 @@
                     await doUpload(true);
                 } else {
                     submitBtn.disabled = false;
-                    submitBtn.textContent = '上傳並開始處理';
+                    submitBtn.innerHTML = '<span class="material-icons-outlined" style="font-size: 18px;">cloud_upload</span> 上傳並開始處理';
                 }
                 return;
             }
@@ -151,16 +148,17 @@
             if (!resp.ok) {
                 alert('上傳失敗: ' + (data.detail?.message || data.detail || '未知錯誤'));
                 submitBtn.disabled = false;
-                submitBtn.textContent = '上傳並開始處理';
+                submitBtn.innerHTML = '<span class="material-icons-outlined" style="font-size: 18px;">cloud_upload</span> 上傳並開始處理';
                 return;
             }
 
-            progressSection.classList.remove('hidden');
+            document.getElementById('uploadCard').style.display = 'none';
+            progressSection.style.display = 'block';
             connectSSE(data.report_id);
         } catch (err) {
             alert('上傳失敗: ' + err.message);
             submitBtn.disabled = false;
-            submitBtn.textContent = '上傳並開始處理';
+            submitBtn.innerHTML = '<span class="material-icons-outlined" style="font-size: 18px;">cloud_upload</span> 上傳並開始處理';
         }
     }
 
@@ -177,12 +175,12 @@
 
         evtSource.addEventListener('status', (e) => {
             const data = JSON.parse(e.data);
-            addMessage(messages, data.message, 'accent');
+            addMessage(messages, data.message, '#1a73e8');
         });
 
         evtSource.addEventListener('prefilter', (e) => {
             const data = JSON.parse(e.data);
-            addMessage(messages, `預篩選完成: ${data.total_slides} 頁中有 ${data.candidate_count} 頁為候選案例頁`, 'teal');
+            addMessage(messages, `預篩選完成: ${data.total_slides} 頁中有 ${data.candidate_count} 頁為候選案例頁`, '#1e8e3e');
         });
 
         evtSource.addEventListener('classify_progress', (e) => {
@@ -196,29 +194,27 @@
             const data = JSON.parse(e.data);
             evtSource.close();
             progressBar.style.width = '100%';
-            progressBar.className = progressBar.className.replace('from-accent to-accent-light', 'from-teal to-teal-light');
-            addMessage(messages, `分類完成！${data.case_count} 案例 · ${data.not_case_count} 非案例 · ${data.error_count} 錯誤`, 'teal');
+            progressBar.style.background = '#1e8e3e';
+            addMessage(messages, `分類完成！${data.case_count} 案例 · ${data.not_case_count} 非案例 · ${data.error_count} 錯誤`, '#1e8e3e');
             setTimeout(() => { window.location.href = `/reports/${data.report_id}/triage`; }, 1500);
         });
 
         evtSource.addEventListener('error', (e) => {
             try {
                 const data = JSON.parse(e.data);
-                addMessage(messages, data.message, 'red');
+                addMessage(messages, data.message, '#d93025');
             } catch {
-                addMessage(messages, '處理過程發生錯誤', 'red');
+                addMessage(messages, '處理過程發生錯誤', '#d93025');
             }
             evtSource.close();
-            progressBar.className = progressBar.className.replace('from-accent to-accent-light', 'from-red-500 to-red-400');
+            progressBar.style.background = '#d93025';
         });
     }
 
     function addMessage(container, text, color) {
         const div = document.createElement('div');
-        const dotColor = color === 'accent' ? 'bg-accent' : color === 'teal' ? 'bg-teal' : 'bg-red-400';
-        const textColor = color === 'accent' ? 'text-gray-600' : color === 'teal' ? 'text-teal' : 'text-red-500';
-        div.className = `text-[12px] flex items-center gap-2.5 ${textColor} font-medium`;
-        div.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${dotColor} shrink-0"></span>${text}`;
+        div.style.cssText = `font-size: 13px; color: ${color}; padding: 4px 0; display: flex; align-items: center; gap: 8px;`;
+        div.innerHTML = `<span style="width: 6px; height: 6px; border-radius: 50%; background: ${color}; flex-shrink: 0;"></span>${text}`;
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
     }

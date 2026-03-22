@@ -3,107 +3,104 @@
 
 {% block content %}
 <!-- Breadcrumb & Header -->
-<a href="/weeks" class="inline-flex items-center gap-1 text-[12px] text-[#5f6368] hover:text-accent transition-colors mb-3 font-medium group">
-    <span class="material-icons-outlined text-[14px] group-hover:-translate-x-0.5 transition-transform">arrow_back</span>週報總覽
+<a href="/weeks" style="display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: #5f6368; text-decoration: none; margin-bottom: 12px;">
+    <span class="material-icons-outlined" style="font-size: 16px;">arrow_back</span>週報總覽
 </a>
 
-<div class="flex items-center justify-between mt-1 mb-8">
-    <div class="flex items-center gap-4">
-        <div class="w-12 h-12 rounded-lg bg-[#e8f0fe] flex flex-col items-center justify-center">
-            <span class="text-[9px] font-bold text-accent/60 uppercase leading-none tracking-wider font-mono">Week</span>
-            <span class="data-value text-lg text-accent leading-tight">{{ period.week_number }}</span>
+<div class="page-header" style="margin-top: 4px;">
+    <div style="display: flex; align-items: center; gap: 16px;">
+        <div style="width: 48px; height: 48px; border-radius: 12px; background: #e8f0fe; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <span style="font-size: 9px; font-weight: 600; color: #1967d2; text-transform: uppercase; line-height: 1;">Week</span>
+            <span class="data-value" style="font-size: 18px; color: #1967d2; line-height: 1;">{{ period.week_number }}</span>
         </div>
         <div>
-            <h1 class="text-[24px] font-bold text-[#1f1f1f] tracking-tight">
-                {{ period.year }}-W{{ "%02d"|format(period.week_number) }}
-            </h1>
-            <p class="text-[13px] text-[#5f6368] mt-0.5 font-mono">{{ period.start_date }} → {{ period.end_date }}</p>
+            <h1 style="margin: 0;">{{ period.year }}-W{{ "%02d"|format(period.week_number) }}</h1>
+            <p style="font-size: 13px; color: #5f6368; margin: 2px 0 0;">{{ period.start_date }} → {{ period.end_date }}</p>
         </div>
     </div>
     {% if "write" in scopes|default([]) %}
-    <a href="/upload"
-        class="inline-flex items-center gap-1.5 bg-accent hover:bg-accent-light text-white px-5 py-2.5 rounded-lg text-[13px] font-medium transition-colors">
-        <span class="material-icons-outlined text-[18px]">add</span>
-        上傳周報
-    </a>
+    <div class="page-header-actions">
+        <a href="/upload" class="btn btn-primary">
+            <span class="material-icons-outlined" style="font-size: 18px;">add</span>
+            上傳周報
+        </a>
+    </div>
     {% endif %}
 </div>
 
 <!-- Weekly Summary -->
 {% if period.summary %}
-<div class="bg-white rounded-lg border border-[#dadce0] p-5 mb-8">
-    <div class="flex items-center gap-2 mb-3">
-        <span class="material-icons-outlined text-accent text-[18px]">auto_awesome</span>
-        <h2 class="text-[14px] font-semibold text-[#1f1f1f]">本周重點摘要</h2>
-        <span class="text-[10px] text-[#5f6368] bg-[#f1f3f4] px-2 py-0.5 rounded-full font-mono">AI 生成</span>
+<div class="card" style="margin-bottom: 24px;">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <span class="material-icons-outlined" style="font-size: 18px; color: #1a73e8;">auto_awesome</span>
+        <h2 style="font-size: 14px; font-weight: 500; color: #202124; margin: 0;">本周重點摘要</h2>
+        <span style="font-size: 10px; color: #5f6368; background: #f1f3f4; padding: 2px 8px; border-radius: 9999px;">AI 生成</span>
     </div>
-    <div class="text-[13px] text-[#3c4043] leading-relaxed whitespace-pre-line">{{ period.summary }}</div>
+    <div style="font-size: 13px; color: #3c4043; line-height: 1.8; white-space: pre-line;">{{ period.summary }}</div>
 </div>
 {% endif %}
 
 <!-- Reports -->
-<div class="mb-8">
-    <div class="flex items-center gap-2 mb-3">
-        <span class="material-icons-outlined text-[#5f6368] text-[18px]">description</span>
-        <h2 class="text-[14px] font-semibold text-[#1f1f1f]">本周報告</h2>
+<div style="margin-bottom: 24px;">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <span class="material-icons-outlined" style="font-size: 18px; color: #5f6368;">description</span>
+        <h2 style="font-size: 14px; font-weight: 500; color: #202124; margin: 0;">本周報告</h2>
     </div>
 
     {% if reports %}
-    <div class="bg-white rounded-lg border border-[#dadce0] divide-y divide-[#e8eaed]">
+    <div class="card" style="padding: 0; overflow: hidden;">
         {% for r in reports %}
-        <div class="stagger-in flex items-center justify-between px-4 py-3 hover:bg-[#f1f3f4] transition-colors">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-lg bg-[#e8f0fe] flex items-center justify-center shrink-0">
-                    <span class="material-icons-outlined text-accent text-[18px]">description</span>
+        <div class="stagger-in" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #e0e0e0; transition: background 0.15s; animation-delay: {{ loop.index0 * 0.04 }}s;"
+            onmouseenter="this.style.background='#f8f9fa'" onmouseleave="this.style.background='transparent'">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 36px; height: 36px; border-radius: 10px; background: #e8f0fe; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <span class="material-icons-outlined" style="font-size: 18px; color: #1a73e8;">description</span>
                 </div>
                 <div>
-                    <div class="text-[13px] font-medium text-[#1f1f1f]">{{ r.report.filename }}</div>
-                    <div class="text-[11px] text-[#5f6368] mt-0.5">
-                        {{ r.uploader_name }} · <span class="font-mono">{{ r.report.total_slides }}</span> 頁 · <span class="font-mono">{{ r.report.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                    <div style="font-size: 13px; font-weight: 500; color: #202124;">{{ r.report.filename }}</div>
+                    <div style="font-size: 11px; color: #5f6368; margin-top: 2px;">
+                        {{ r.uploader_name }} · {{ r.report.total_slides }} 頁 · {{ r.report.created_at.strftime('%Y-%m-%d %H:%M') }}
                     </div>
                 </div>
             </div>
-            <div class="flex items-center gap-3">
+            <div style="display: flex; align-items: center; gap: 12px;">
                 {% if r.report.status == 'done' %}
-                <span class="badge bg-[#e6f4ea] text-[#1e8e3e] inline-flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[#1e8e3e]"></span>完成
+                <span class="badge" style="background: #e6f4ea; color: #137333; display: inline-flex; align-items: center; gap: 4px;">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #1e8e3e; display: inline-block;"></span>完成
                 </span>
                 {% elif r.report.status == 'review' %}
-                <span class="badge bg-[#fef7e0] text-[#ea8600] inline-flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[#ea8600] animate-pulse"></span>待審核
+                <span class="badge" style="background: #fef7e0; color: #ea8600; display: inline-flex; align-items: center; gap: 4px;">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #ea8600; display: inline-block; animation: pulse 2s infinite;"></span>待審核
                 </span>
                 {% elif r.report.status == 'triage' %}
-                <span class="badge bg-[#f3e8fd] text-[#9334e6] inline-flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[#9334e6] animate-pulse"></span>待分類確認
+                <span class="badge" style="background: #f3e8fd; color: #9334e6; display: inline-flex; align-items: center; gap: 4px;">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #9334e6; display: inline-block; animation: pulse 2s infinite;"></span>待分類確認
                 </span>
                 {% elif r.report.status == 'extracting' %}
-                <span class="badge bg-[#e8f0fe] text-accent inline-flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>提取中
+                <span class="badge" style="background: #e8f0fe; color: #1a73e8; display: inline-flex; align-items: center; gap: 4px;">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #1a73e8; display: inline-block; animation: pulse 2s infinite;"></span>提取中
                 </span>
                 {% elif r.report.status == 'processing' %}
-                <span class="badge bg-[#e8f0fe] text-accent inline-flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>處理中
+                <span class="badge" style="background: #e8f0fe; color: #1a73e8; display: inline-flex; align-items: center; gap: 4px;">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #1a73e8; display: inline-block; animation: pulse 2s infinite;"></span>處理中
                 </span>
                 {% else %}
-                <span class="badge bg-[#fce8e6] text-[#d93025] inline-flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[#d93025]"></span>錯誤
+                <span class="badge" style="background: #fce8e6; color: #d93025; display: inline-flex; align-items: center; gap: 4px;">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #d93025; display: inline-block;"></span>錯誤
                 </span>
                 {% endif %}
 
                 {% if r.report.status == 'triage' %}
-                <a href="/reports/{{ r.report.id }}/triage"
-                    class="inline-flex items-center gap-1 text-[12px] text-[#9334e6] hover:text-[#7627bb] transition-colors font-medium group">
-                    分類確認<span class="material-icons-outlined text-[14px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+                <a href="/reports/{{ r.report.id }}/triage" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #9334e6; text-decoration: none; font-weight: 500;">
+                    分類確認<span class="material-icons-outlined" style="font-size: 14px;">arrow_forward</span>
                 </a>
                 {% elif r.report.status == 'review' %}
-                <a href="/reports/{{ r.report.id }}/review"
-                    class="inline-flex items-center gap-1 text-[12px] text-accent hover:text-accent-light transition-colors font-medium group">
-                    審核<span class="material-icons-outlined text-[14px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+                <a href="/reports/{{ r.report.id }}/review" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #1a73e8; text-decoration: none; font-weight: 500;">
+                    審核<span class="material-icons-outlined" style="font-size: 14px;">arrow_forward</span>
                 </a>
                 {% elif r.report.status == 'done' %}
-                <a href="/reports/{{ r.report.id }}/slides"
-                    class="inline-flex items-center gap-1 text-[12px] text-[#5f6368] hover:text-accent transition-colors font-medium group">
-                    投影片<span class="material-icons-outlined text-[14px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+                <a href="/reports/{{ r.report.id }}/slides" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #5f6368; text-decoration: none; font-weight: 500;">
+                    投影片<span class="material-icons-outlined" style="font-size: 14px;">arrow_forward</span>
                 </a>
                 {% endif %}
             </div>
@@ -111,24 +108,33 @@
         {% endfor %}
     </div>
     {% else %}
-    <div class="bg-white rounded-lg border border-[#dadce0] p-10 text-center">
-        <p class="text-[13px] text-[#5f6368]">本周尚無報告</p>
+    <div class="card" style="text-align: center; padding: 40px;">
+        <p style="font-size: 13px; color: #5f6368; margin: 0;">本周尚無報告</p>
     </div>
     {% endif %}
 </div>
 
 <!-- Cases -->
 <div>
-    <div class="flex items-center gap-2 mb-3">
-        <span class="material-icons-outlined text-[#5f6368] text-[18px]">bug_report</span>
-        <h2 class="text-[14px] font-semibold text-[#1f1f1f]">本周案例</h2>
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <span class="material-icons-outlined" style="font-size: 18px; color: #5f6368;">bug_report</span>
+        <h2 style="font-size: 14px; font-weight: 500; color: #202124; margin: 0;">本周案例</h2>
     </div>
     <div id="weekCases">
-        <div class="bg-white rounded-lg border border-[#dadce0] p-10 text-center">
-            <p class="text-[13px] text-[#5f6368] animate-pulse">載入中...</p>
+        <div class="card" style="text-align: center; padding: 40px;">
+            <p style="font-size: 13px; color: #5f6368; margin: 0; animation: pulse 2s infinite;">載入中...</p>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block head %}
+<style>
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+</style>
 {% endblock %}
 
 {% block scripts %}
@@ -146,32 +152,33 @@
 
             if (data.items.length === 0) {
                 container.innerHTML = `
-                    <div class="bg-white rounded-lg border border-[#dadce0] p-10 text-center">
-                        <p class="text-[13px] text-[#5f6368]">本周尚無案例</p>
+                    <div class="card" style="text-align: center; padding: 40px;">
+                        <p style="font-size: 13px; color: #5f6368; margin: 0;">本周尚無案例</p>
                     </div>`;
                 return;
             }
 
-            let html = '<div class="bg-white rounded-lg border border-[#dadce0] divide-y divide-[#e8eaed]">';
+            let html = '<div class="card" style="padding: 0; overflow: hidden;">';
             data.items.forEach((c, i) => {
                 html += `
-                <a href="/cases/${encodeURIComponent(c.id)}" class="stagger-in flex items-center justify-between px-4 py-3 hover:bg-[#f1f3f4] transition-colors group block" style="animation-delay: ${i * 0.03}s">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <div class="w-9 h-9 rounded-lg bg-[#e6f4ea] flex items-center justify-center shrink-0">
-                            <span class="material-icons-outlined text-[#1e8e3e] text-[18px]">bug_report</span>
+                <a href="/cases/${encodeURIComponent(c.id)}" class="stagger-in" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #e0e0e0; text-decoration: none; transition: background 0.15s; animation-delay: ${i * 0.03}s;"
+                    onmouseenter="this.style.background='#f8f9fa'" onmouseleave="this.style.background='transparent'">
+                    <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                        <div style="width: 36px; height: 36px; border-radius: 10px; background: #e6f4ea; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <span class="material-icons-outlined" style="font-size: 18px; color: #1e8e3e;">bug_report</span>
                         </div>
-                        <div class="min-w-0">
-                            <div class="text-[13px] font-medium text-[#1f1f1f] group-hover:text-accent transition-colors truncate">
+                        <div style="min-width: 0;">
+                            <div style="font-size: 13px; font-weight: 500; color: #202124; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                 ${escHtml(c.customer) || '—'} / ${escHtml(c.device) || '—'}
                             </div>
-                            <div class="text-[11px] text-[#5f6368] mt-0.5 truncate">
-                                ${escHtml(c.defect_mode) || '—'} · <span class="font-mono">${escHtml(c.date) || '—'}</span>
+                            <div style="font-size: 11px; color: #5f6368; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                ${escHtml(c.defect_mode) || '—'} · ${escHtml(c.date) || '—'}
                             </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-3 shrink-0 ml-4">
-                        <span class="text-[11px] text-[#5f6368] max-w-[200px] truncate">${escHtml(c.fa_status) || '—'}</span>
-                        <span class="material-icons-outlined text-[#dadce0] group-hover:text-accent group-hover:translate-x-0.5 transition-all text-[18px]">chevron_right</span>
+                    <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0; margin-left: 16px;">
+                        <span style="font-size: 11px; color: #5f6368; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escHtml(c.fa_status) || '—'}</span>
+                        <span class="material-icons-outlined" style="font-size: 18px; color: #dadce0;">chevron_right</span>
                     </div>
                 </a>`;
             });
@@ -179,8 +186,8 @@
             container.innerHTML = html;
         } catch (err) {
             container.innerHTML = `
-                <div class="bg-white rounded-lg border border-[#dadce0] p-10 text-center">
-                    <p class="text-[13px] text-[#d93025]">載入失敗: ${err.message}</p>
+                <div class="card" style="text-align: center; padding: 40px;">
+                    <p style="font-size: 13px; color: #d93025; margin: 0;">載入失敗: ${err.message}</p>
                 </div>`;
         }
     }

@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     auth_public_key_path: str = ""
     dev_skip_auth: bool = False
 
+    # Mock data mode — serves placeholder data without DB/VLM
+    mock_data: bool = False
+
     model_config = {"env_file": ".env"}
 
     @model_validator(mode="after")

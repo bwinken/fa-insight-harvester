@@ -14,6 +14,9 @@ DEV_SKIP_AUTH=true uv run fastapi run app/main.py
 # Run with hot-reload
 uv run uvicorn app.main:app --reload
 
+# Run with mock data (no DB/VLM required)
+MOCK_DATA=true DEV_SKIP_AUTH=true uv run uvicorn app.main:app --reload
+
 # Database migrations
 uv run alembic upgrade head       # apply all
 uv run alembic revision --autogenerate -m "description"  # create new

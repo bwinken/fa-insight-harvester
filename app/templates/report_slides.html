@@ -2,93 +2,87 @@
 {% block title %}投影片總覽 — QVault{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-    <a href="/weeks/{{ report.weekly_period_id }}" class="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-accent transition-colors duration-200 mb-2 font-medium group">
-        <span class="material-icons-outlined text-[14px] group-hover:-translate-x-0.5 transition-transform">arrow_back</span>返回周報
+<div style="margin-bottom: 24px;">
+    <a href="/weeks/{{ report.weekly_period_id }}" style="display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: #5f6368; text-decoration: none; margin-bottom: 8px;">
+        <span class="material-icons-outlined" style="font-size: 16px;">arrow_back</span>返回周報
     </a>
-    <h1 class="text-[26px] font-bold text-gray-900 tracking-tight">投影片總覽</h1>
-    <div class="flex items-center gap-2 mt-1">
-        <span class="material-icons-outlined text-gray-300 text-[14px]">description</span>
-        <p class="text-[13px] text-gray-400 font-mono font-medium">{{ report.filename }}</p>
-        <span class="mx-2 text-gray-200">|</span>
-        <span class="text-[12px] text-gray-400">共 {{ slides|length }} 頁</span>
-        <span class="mx-2 text-gray-200">|</span>
-        <span class="text-[12px] font-medium {% if report.status == 'done' %}text-teal{% elif report.status == 'review' %}text-amber-500{% else %}text-gray-400{% endif %}">
-            {{ report.status }}
-        </span>
-    </div>
+    <h1 style="font-size: 22px; font-weight: 400; color: #202124; margin: 0;">投影片總覽</h1>
+    <p style="font-size: 13px; color: #5f6368; margin: 4px 0 0;">
+        {{ report.filename }} · 共 {{ slides|length }} 頁 ·
+        <span style="font-weight: 500; color: {% if report.status == 'done' %}#1e8e3e{% elif report.status == 'review' %}#ea8600{% else %}#5f6368{% endif %};">{{ report.status }}</span>
+    </p>
 </div>
 
 <!-- Guide tip -->
 {% if "write" in scopes|default([]) %}
 {% set unlinked = slides|selectattr('linked_case_id', 'none')|selectattr('is_candidate')|list %}
 {% if unlinked %}
-<div id="slidesGuideTip" class="mb-5 rounded-xl border border-amber-200/50 bg-amber-50/30 px-5 py-3.5 flex items-start gap-3">
-    <span class="material-icons-outlined text-amber-400 text-[18px] mt-0.5 shrink-0">info</span>
-    <div class="flex-1 text-[12px] text-gray-500 leading-relaxed">
-        有 <strong class="text-amber-600">{{ unlinked|length }}</strong> 個候選投影片尚未建立案例。
-        如果其中包含遺漏的 FA 案例，點擊卡片下方<strong class="text-accent">「建立案例」</strong>按鈕即可手動建立。
-        已確認的案例可點擊<strong class="text-teal">「查看案例」</strong>前往編輯或刪除。
+<div id="slidesGuideTip" class="alert alert-warning" style="display: flex; align-items: flex-start; gap: 12px;">
+    <span class="material-icons-outlined" style="font-size: 18px; flex-shrink: 0; margin-top: 2px;">info</span>
+    <div style="flex: 1; font-size: 13px; line-height: 1.6;">
+        有 <strong>{{ unlinked|length }}</strong> 個候選投影片尚未建立案例。
+        如果其中包含遺漏的 FA 案例，點擊卡片下方<strong style="color: #1a73e8;">「建立案例」</strong>按鈕即可手動建立。
+        已確認的案例可點擊<strong style="color: #1e8e3e;">「查看案例」</strong>前往編輯或刪除。
     </div>
-    <button onclick="document.getElementById('slidesGuideTip').remove()" class="text-gray-300 hover:text-gray-500 transition-colors shrink-0" title="關閉">
-        <span class="material-icons-outlined text-[16px]">close</span>
+    <button onclick="document.getElementById('slidesGuideTip').style.display='none'" style="background: none; border: none; cursor: pointer; color: #5f6368; padding: 0; flex-shrink: 0;">
+        <span class="material-icons-outlined" style="font-size: 16px;">close</span>
     </button>
 </div>
 {% endif %}
 {% endif %}
 
 <!-- Legend -->
-<div class="flex items-center gap-6 mb-6 text-[11px] text-gray-400 font-medium">
-    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-teal/20 border border-teal/40"></span>已確認案例</span>
-    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-amber-100 border border-amber-300"></span>候選（未確認）</span>
-    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-gray-50 border border-gray-200"></span>跳過</span>
+<div style="display: flex; align-items: center; gap: 24px; margin-bottom: 16px; font-size: 12px; color: #5f6368; font-weight: 500;">
+    <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; border-radius: 3px; background: #e6f4ea; border: 1px solid #ceead6; display: inline-block;"></span>已確認案例</span>
+    <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; border-radius: 3px; background: #fef7e0; border: 1px solid #feefc3; display: inline-block;"></span>候選（未確認）</span>
+    <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; border-radius: 3px; background: #f8f9fa; border: 1px solid #e0e0e0; display: inline-block;"></span>跳過</span>
 </div>
 
 <!-- Slides grid -->
-<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px;">
     {% for slide in slides %}
-    <div class="group relative rounded-xl overflow-hidden border transition-all duration-200
-        {% if slide.linked_case_id %}border-teal/40 bg-teal/[0.03] hover:shadow-lg hover:shadow-teal/10
-        {% elif slide.is_candidate %}border-amber-200 bg-amber-50/30 hover:shadow-lg hover:shadow-amber-100/30
-        {% else %}border-gray-100 bg-white hover:shadow-md{% endif %}">
+    <div style="position: relative; border-radius: 14px; overflow: hidden; transition: box-shadow 0.25s;
+        border: 1px solid {% if slide.linked_case_id %}#ceead6{% elif slide.is_candidate %}#feefc3{% else %}#e0e0e0{% endif %};
+        background: {% if slide.linked_case_id %}#f6fef8{% elif slide.is_candidate %}#fffdf5{% else %}#fff{% endif %};"
+        onmouseenter="this.style.boxShadow='0 2px 12px rgba(32,33,36,0.1)'" onmouseleave="this.style.boxShadow='none'">
 
         <!-- Image -->
-        <div class="relative aspect-[4/3] overflow-hidden bg-gray-50">
+        <div style="position: relative; aspect-ratio: 4/3; overflow: hidden; background: #f8f9fa;">
             <img src="/uploads/{{ slide.image_path }}" alt="Slide {{ slide.slide_number }}"
-                class="w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-105"
+                style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;"
                 onclick="window.open('/uploads/{{ slide.image_path }}', '_blank')">
 
             <!-- Slide number badge -->
-            <div class="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-mono font-medium px-2 py-0.5 rounded-md">
+            <div style="position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.5); color: #fff; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 6px;">
                 Slide {{ slide.slide_number }}
             </div>
 
             <!-- Status badge -->
             {% if slide.linked_case_id %}
-            <div class="absolute top-2 right-2 bg-teal text-white text-[9px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
-                <span class="material-icons-outlined text-[12px]">check</span>案例
+            <div style="position: absolute; top: 8px; right: 8px; background: #1e8e3e; color: #fff; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 6px; display: flex; align-items: center; gap: 4px;">
+                <span class="material-icons-outlined" style="font-size: 12px;">check</span>案例
             </div>
             {% elif slide.is_candidate %}
-            <div class="absolute top-2 right-2 bg-amber-400 text-white text-[9px] font-bold px-2 py-0.5 rounded-md">
+            <div style="position: absolute; top: 8px; right: 8px; background: #ea8600; color: #fff; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 6px;">
                 候選
             </div>
             {% endif %}
         </div>
 
         <!-- Footer -->
-        <div class="px-3 py-2.5 flex items-center justify-between">
+        <div style="padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;">
             {% if slide.linked_case_id %}
-            <a href="/cases/{{ slide.linked_case_id }}" class="text-[11px] text-teal font-semibold hover:underline flex items-center gap-1">
-                <span class="material-icons-outlined text-[14px]">open_in_new</span>查看案例
+            <a href="/cases/{{ slide.linked_case_id }}" style="font-size: 12px; color: #1e8e3e; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                <span class="material-icons-outlined" style="font-size: 14px;">open_in_new</span>查看案例
             </a>
             {% elif "write" in scopes|default([]) %}
             <button onclick="openCreateCase({{ slide.id }}, {{ slide.slide_number }})"
-                class="text-[11px] text-accent hover:text-accent-light font-semibold flex items-center gap-1 transition-colors"
+                style="font-size: 12px; color: #1a73e8; font-weight: 500; background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 4px; font-family: inherit;"
                 title="將此投影片手動建立為 FA 案例">
-                <span class="material-icons-outlined text-[14px]">add_circle_outline</span>建立案例
+                <span class="material-icons-outlined" style="font-size: 14px;">add_circle_outline</span>建立案例
             </button>
             {% else %}
-            <span class="text-[10px] text-gray-300">—</span>
+            <span style="font-size: 11px; color: #dadce0;">—</span>
             {% endif %}
         </div>
     </div>
@@ -96,67 +90,64 @@
 </div>
 
 <!-- Create case modal -->
-<div id="createCaseModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
-        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 class="text-[16px] font-bold text-gray-900">手動建立案例 — <span id="modalSlideLabel" class="font-mono text-accent"></span></h3>
-            <button onclick="closeCreateCase()" class="text-gray-300 hover:text-gray-500 transition-colors">
+<div id="createCaseModal" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="width: 520px; max-height: 90vh; overflow-y: auto;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 16px; border-bottom: 1px solid #e0e0e0;">
+            <h3 style="font-size: 16px; font-weight: 500; color: #202124; margin: 0;">手動建立案例 — <span id="modalSlideLabel" style="color: #1a73e8;"></span></h3>
+            <button onclick="closeCreateCase()" style="background: none; border: none; cursor: pointer; color: #5f6368; padding: 0;">
                 <span class="material-icons-outlined">close</span>
             </button>
         </div>
-        <form id="createCaseForm" class="px-6 py-4 space-y-3">
+        <form id="createCaseForm" style="padding-top: 16px;">
             <input type="hidden" id="modalSlideId">
-            <div class="grid grid-cols-2 gap-3">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                 <div>
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">Date</label>
-                    <input type="text" name="date" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Date</label>
+                    <input type="text" name="date" class="input-field" style="width: 100%;">
                 </div>
                 <div>
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">Customer</label>
-                    <input type="text" name="customer" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Customer</label>
+                    <input type="text" name="customer" class="input-field" style="width: 100%;">
                 </div>
                 <div>
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">Device</label>
-                    <input type="text" name="device" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Device</label>
+                    <input type="text" name="device" class="input-field" style="width: 100%;">
                 </div>
                 <div>
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">Model</label>
-                    <input type="text" name="model" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
-                </div>
-            </div>
-            <div>
-                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">Defect Mode</label>
-                <input type="text" name="defect_mode" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">Defect Rate</label>
-                    <input type="text" name="defect_rate_raw" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
-                </div>
-                <div>
-                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">FAB/Assembly</label>
-                    <input type="text" name="fab_assembly" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Model</label>
+                    <input type="text" name="model" class="input-field" style="width: 100%;">
                 </div>
             </div>
-            <div>
-                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">Defect Lots</label>
-                <input type="text" name="defect_lots" placeholder="以逗號分隔" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 11px; font-weight: 600; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Defect Mode</label>
+                <input type="text" name="defect_mode" class="input-field" style="width: 100%;">
             </div>
-            <div>
-                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">FA Status</label>
-                <input type="text" name="fa_status" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Defect Rate</label>
+                    <input type="text" name="defect_rate_raw" class="input-field" style="width: 100%;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 600; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">FAB/Assembly</label>
+                    <input type="text" name="fab_assembly" class="input-field" style="width: 100%;">
+                </div>
             </div>
-            <div>
-                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">Follow Up</label>
-                <input type="text" name="follow_up" class="w-full mt-1 px-3 py-2 text-[13px] border border-gray-200 rounded-lg focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none transition-all">
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 11px; font-weight: 600; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Defect Lots</label>
+                <input type="text" name="defect_lots" placeholder="以逗號分隔" class="input-field" style="width: 100%;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 11px; font-weight: 600; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">FA Status</label>
+                <input type="text" name="fa_status" class="input-field" style="width: 100%;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 11px; font-weight: 600; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Follow Up</label>
+                <input type="text" name="follow_up" class="input-field" style="width: 100%;">
             </div>
         </form>
-        <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
-            <button onclick="closeCreateCase()" class="px-4 py-2 text-[13px] text-gray-500 hover:text-gray-700 font-medium transition-colors">取消</button>
-            <button id="submitCaseBtn" onclick="submitCreateCase()"
-                class="px-5 py-2 bg-gradient-to-r from-accent to-accent-light text-white text-[13px] font-semibold rounded-xl hover:shadow-lg hover:shadow-accent/20 transition-all duration-300">
-                建立案例
-            </button>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; padding-top: 16px; border-top: 1px solid #e0e0e0;">
+            <button onclick="closeCreateCase()" class="btn btn-outline" style="padding: 8px 20px;">取消</button>
+            <button id="submitCaseBtn" onclick="submitCreateCase()" class="btn btn-primary" style="padding: 8px 20px;">建立案例</button>
         </div>
     </div>
 </div>
@@ -168,11 +159,11 @@
         document.getElementById('modalSlideId').value = slideId;
         document.getElementById('modalSlideLabel').textContent = `Slide ${slideNumber}`;
         document.getElementById('createCaseForm').reset();
-        document.getElementById('createCaseModal').classList.remove('hidden');
+        document.getElementById('createCaseModal').style.display = 'flex';
     }
 
     function closeCreateCase() {
-        document.getElementById('createCaseModal').classList.add('hidden');
+        document.getElementById('createCaseModal').style.display = 'none';
     }
 
     async function submitCreateCase() {
@@ -215,7 +206,6 @@
         }
     }
 
-    // Close modal on backdrop click
     document.getElementById('createCaseModal').addEventListener('click', (e) => {
         if (e.target === e.currentTarget) closeCreateCase();
     });

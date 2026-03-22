@@ -3,72 +3,66 @@
 
 {% block content %}
 <!-- Header -->
-<div class="mb-8">
-    <a href="/" class="inline-flex items-center gap-1 text-[13px] text-[#5f6368] hover:text-accent transition-colors mb-2 font-medium">
-        <span class="material-icons-outlined text-[16px]">arrow_back</span>首頁
+<div style="margin-bottom: 24px;">
+    <a href="/" style="display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: #5f6368; text-decoration: none; margin-bottom: 8px;">
+        <span class="material-icons-outlined" style="font-size: 16px;">arrow_back</span>首頁
     </a>
-    <h1 class="text-[24px] font-bold text-[#1f1f1f] tracking-tight">週報總覽</h1>
-    <p class="text-[14px] text-[#5f6368] mt-1">瀏覽每週報告的處理狀態、案例統計與提取進度</p>
+    <h1 style="font-size: 22px; font-weight: 400; color: #202124; margin: 0;">週報總覽</h1>
+    <p style="font-size: 14px; color: #5f6368; margin: 4px 0 0;">瀏覽每週報告的處理狀態、案例統計與提取進度</p>
 </div>
 
-<!-- Summary stats -->
 {% if weeks %}
-<div class="grid grid-cols-3 gap-4 mb-8">
-    <div class="bg-white rounded-lg px-5 py-3 flex items-center gap-3 border border-[#dadce0]">
-        <span class="material-icons-outlined text-accent/50 text-[20px]">date_range</span>
-        <div>
-            <div class="data-value text-[20px] text-[#1f1f1f]">{{ weeks|length }}</div>
-            <div class="text-[11px] text-[#5f6368] font-medium uppercase tracking-wider">周次</div>
-        </div>
+<!-- Summary stats -->
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+    <div class="card" style="text-align: center; padding: 20px;">
+        <span class="material-icons-outlined" style="font-size: 20px; color: #1a73e8; display: block; margin-bottom: 4px;">date_range</span>
+        <p class="data-value" style="font-size: 24px; color: #202124; margin: 0;">{{ weeks|length }}</p>
+        <p style="font-size: 12px; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; margin: 4px 0 0;">周次</p>
     </div>
-    <div class="bg-white rounded-lg px-5 py-3 flex items-center gap-3 border border-[#dadce0]">
-        <span class="material-icons-outlined text-[#5f6368]/50 text-[20px]">description</span>
-        <div>
-            <div class="data-value text-[20px] text-[#1f1f1f]">{{ weeks|sum(attribute='report_count') }}</div>
-            <div class="text-[11px] text-[#5f6368] font-medium uppercase tracking-wider">報告</div>
-        </div>
+    <div class="card" style="text-align: center; padding: 20px;">
+        <span class="material-icons-outlined" style="font-size: 20px; color: #5f6368; display: block; margin-bottom: 4px;">description</span>
+        <p class="data-value" style="font-size: 24px; color: #202124; margin: 0;">{{ weeks|sum(attribute='report_count') }}</p>
+        <p style="font-size: 12px; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; margin: 4px 0 0;">報告</p>
     </div>
-    <div class="bg-white rounded-lg px-5 py-3 flex items-center gap-3 border border-[#dadce0]">
-        <span class="material-icons-outlined text-teal/50 text-[20px]">bug_report</span>
-        <div>
-            <div class="data-value text-[20px] text-[#1f1f1f]">{{ weeks|sum(attribute='case_count') }}</div>
-            <div class="text-[11px] text-[#5f6368] font-medium uppercase tracking-wider">案例</div>
-        </div>
+    <div class="card" style="text-align: center; padding: 20px;">
+        <span class="material-icons-outlined" style="font-size: 20px; color: #1e8e3e; display: block; margin-bottom: 4px;">bug_report</span>
+        <p class="data-value" style="font-size: 24px; color: #202124; margin: 0;">{{ weeks|sum(attribute='case_count') }}</p>
+        <p style="font-size: 12px; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; margin: 4px 0 0;">案例</p>
     </div>
 </div>
 
 <!-- Weekly cards grid -->
-<div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
     {% for w in weeks %}
-    <a href="/weeks/{{ w.period.id }}"
-        class="stagger-in group card bg-white rounded-xl p-5 block"
-        style="animation-delay: {{ loop.index0 * 0.04 }}s">
-        <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-lg bg-[#e8f0fe] flex flex-col items-center justify-center group-hover:bg-[#d2e3fc] transition-colors">
-                    <span class="text-[8px] font-bold text-accent/60 uppercase leading-none tracking-wider font-mono">W</span>
-                    <span class="data-value text-[16px] text-accent leading-tight">{{ w.period.week_number }}</span>
-                </div>
-                <div>
-                    <div class="text-[14px] font-semibold text-[#1f1f1f] group-hover:text-accent transition-colors">
-                        {{ w.period.year }}-W{{ "%02d"|format(w.period.week_number) }}
+    <a href="/weeks/{{ w.period.id }}" class="stagger-in" style="text-decoration: none; animation-delay: {{ loop.index0 * 0.04 }}s;">
+        <div class="card" style="padding: 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 40px; height: 40px; border-radius: 10px; background: #e8f0fe; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                        <span style="font-size: 8px; font-weight: 600; color: #1967d2; text-transform: uppercase; line-height: 1;">W</span>
+                        <span class="data-value" style="font-size: 16px; color: #1967d2; line-height: 1;">{{ w.period.week_number }}</span>
                     </div>
-                    <div class="text-[11px] text-[#5f6368] font-mono">{{ w.period.start_date }} → {{ w.period.end_date }}</div>
+                    <div>
+                        <div style="font-size: 14px; font-weight: 500; color: #202124;">
+                            {{ w.period.year }}-W{{ "%02d"|format(w.period.week_number) }}
+                        </div>
+                        <div style="font-size: 11px; color: #5f6368;">{{ w.period.start_date }} → {{ w.period.end_date }}</div>
+                    </div>
                 </div>
+                <span class="material-icons-outlined" style="font-size: 18px; color: #dadce0;">chevron_right</span>
             </div>
-            <span class="material-icons-outlined text-[#dadce0] group-hover:text-accent text-[18px] transition-colors">chevron_right</span>
-        </div>
-        <div class="flex items-center gap-4 pt-3 border-t border-[#e8eaed]">
-            <div class="flex items-center gap-1.5">
-                <span class="material-icons-outlined text-[#5f6368]/40 text-[14px]">description</span>
-                <span class="data-value text-[14px] text-[#3c4043]">{{ w.report_count }}</span>
-                <span class="text-[11px] text-[#5f6368]">份報告</span>
-            </div>
-            <div class="w-px h-3 bg-[#e8eaed]"></div>
-            <div class="flex items-center gap-1.5">
-                <span class="material-icons-outlined text-teal/40 text-[14px]">bug_report</span>
-                <span class="data-value text-[14px] text-[#3c4043]">{{ w.case_count }}</span>
-                <span class="text-[11px] text-[#5f6368]">個案例</span>
+            <div style="display: flex; align-items: center; gap: 16px; padding-top: 12px; border-top: 1px solid #e0e0e0;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span class="material-icons-outlined" style="font-size: 14px; color: #9aa0a6;">description</span>
+                    <span class="data-value" style="font-size: 14px; color: #3c4043;">{{ w.report_count }}</span>
+                    <span style="font-size: 11px; color: #5f6368;">份報告</span>
+                </div>
+                <div style="width: 1px; height: 12px; background: #e0e0e0;"></div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span class="material-icons-outlined" style="font-size: 14px; color: #1e8e3e;">bug_report</span>
+                    <span class="data-value" style="font-size: 14px; color: #3c4043;">{{ w.case_count }}</span>
+                    <span style="font-size: 11px; color: #5f6368;">個案例</span>
+                </div>
             </div>
         </div>
     </a>
@@ -77,15 +71,12 @@
 
 {% else %}
 <!-- Empty state -->
-<div class="card bg-white rounded-xl flex flex-col items-center justify-center py-20">
-    <div class="w-16 h-16 rounded-2xl bg-[#e8f0fe] flex items-center justify-center mb-5">
-        <span class="material-icons-outlined text-accent text-[28px]">note_add</span>
-    </div>
-    <h2 class="text-[16px] font-semibold text-[#1f1f1f] mb-1.5">尚無任何周報資料</h2>
-    <p class="text-[13px] text-[#5f6368] mb-6 max-w-xs text-center">上傳您的第一份失效分析周報以開始使用系統</p>
-    <a href="/upload"
-        class="inline-flex items-center gap-2 bg-accent hover:bg-accent-light text-white px-6 py-2.5 rounded-full text-[14px] font-medium transition-colors duration-200">
-        <span class="material-icons-outlined text-[18px]">add</span>
+<div class="card" style="text-align: center; padding: 64px 24px;">
+    <span class="material-icons-outlined" style="font-size: 48px; color: #dadce0; display: block; margin-bottom: 16px;">note_add</span>
+    <h2 style="font-size: 16px; font-weight: 500; color: #202124; margin: 0 0 6px;">尚無任何周報資料</h2>
+    <p style="font-size: 13px; color: #5f6368; margin: 0 0 24px;">上傳您的第一份失效分析周報以開始使用系統</p>
+    <a href="/upload" class="btn btn-primary">
+        <span class="material-icons-outlined" style="font-size: 18px;">add</span>
         上傳第一份周報
     </a>
 </div>

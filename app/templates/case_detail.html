@@ -3,97 +3,82 @@
 
 {% block content %}
 <!-- Breadcrumb & Header -->
-<div class="flex items-center justify-between mb-8">
+<div class="page-header">
     <div>
-        <a href="/cases" class="inline-flex items-center gap-1 text-[12px] text-gray-400 hover:text-accent transition-colors duration-200 mb-3 font-medium group">
-            <span class="material-icons-outlined text-[14px] group-hover:-translate-x-0.5 transition-transform">arrow_back</span>返回列表
+        <a href="/cases" style="display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: #5f6368; text-decoration: none; margin-bottom: 8px;">
+            <span class="material-icons-outlined" style="font-size: 16px;">arrow_back</span>返回列表
         </a>
-        <h1 class="text-[26px] font-bold text-gray-900 tracking-tight">案例 <span class="font-mono text-accent">#{{ case.id }}</span></h1>
+        <h1 style="margin: 0;">案例 <span style="color: #1a73e8;">#{{ case.id }}</span></h1>
     </div>
     {% if "write" in scopes|default([]) %}
-    <div class="flex gap-2">
-        <button id="editBtn" onclick="toggleEdit()"
-            class="inline-flex items-center gap-1.5 px-4 py-2 border border-surface-muted rounded-xl text-[13px] text-gray-500 font-medium hover:bg-surface hover:border-accent/20 transition-all duration-200">
-            <span class="material-icons-outlined text-[16px]">edit</span>編輯
+    <div class="page-header-actions">
+        <button id="editBtn" onclick="toggleEdit()" class="btn btn-outline">
+            <span class="material-icons-outlined" style="font-size: 16px;">edit</span>編輯
         </button>
-        <button id="deleteBtn" onclick="deleteCase()"
-            class="inline-flex items-center gap-1.5 px-4 py-2 border border-red-100 rounded-xl text-[13px] text-red-400 font-medium hover:bg-red-50 hover:text-red-600 transition-all duration-200">
-            <span class="material-icons-outlined text-[16px]">delete</span>刪除
+        <button id="deleteBtn" onclick="deleteCase()" class="btn btn-danger" style="padding: 8px 20px;">
+            <span class="material-icons-outlined" style="font-size: 16px;">delete</span>刪除
         </button>
     </div>
     {% endif %}
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
     <!-- Slide image -->
     <div class="stagger-in">
         {% if case.slide_image_path %}
-        <div class="card bg-surface-card rounded-2xl p-3 group">
-            <div class="relative overflow-hidden rounded-xl">
-                <img src="/uploads/{{ case.slide_image_path }}" alt="Slide {{ case.slide_number }}"
-                    class="w-full rounded-xl cursor-pointer transition-transform duration-500 group-hover:scale-[1.02]"
-                    onclick="window.open('/uploads/{{ case.slide_image_path }}', '_blank')">
-                <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl flex items-end justify-center pb-4">
-                    <span class="text-white text-[11px] font-medium flex items-center gap-1"><span class="material-icons-outlined text-[14px]">open_in_new</span>點擊放大</span>
-                </div>
-            </div>
-            <p class="text-[11px] text-gray-300 mt-2.5 text-center font-mono font-medium">Slide {{ case.slide_number }}</p>
+        <div class="card" style="padding: 12px;">
+            <img src="/uploads/{{ case.slide_image_path }}" alt="Slide {{ case.slide_number }}"
+                style="width: 100%; border-radius: 10px; cursor: pointer;"
+                onclick="window.open('/uploads/{{ case.slide_image_path }}', '_blank')">
+            <p style="font-size: 11px; color: #5f6368; margin: 8px 0 0; text-align: center;">Slide {{ case.slide_number }}</p>
         </div>
         {% else %}
-        <div class="card bg-surface-card rounded-2xl p-16 flex flex-col items-center justify-center">
-            <div class="w-16 h-16 rounded-2xl bg-surface-muted/50 flex items-center justify-center mb-3">
-                <span class="material-icons-outlined text-gray-200 text-[32px]">image</span>
-            </div>
-            <p class="text-[13px] text-gray-300 font-medium">無圖片</p>
+        <div class="card" style="text-align: center; padding: 64px 24px;">
+            <span class="material-icons-outlined" style="font-size: 48px; color: #dadce0; display: block; margin-bottom: 12px;">image</span>
+            <p style="font-size: 13px; color: #5f6368; margin: 0;">無圖片</p>
         </div>
         {% endif %}
     </div>
 
     <!-- Fields -->
-    <div class="stagger-in card bg-surface-card rounded-2xl p-6" style="animation-delay: 0.06s;">
-        <div class="flex items-center gap-2.5 mb-5">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-accent/10 to-accent/[0.04] flex items-center justify-center">
-                <span class="material-icons-outlined text-accent text-[16px]">assignment</span>
+    <div class="stagger-in" style="animation-delay: 0.06s;">
+        <div class="card">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+                <span class="material-icons-outlined" style="font-size: 20px; color: #1a73e8;">assignment</span>
+                <h2 style="font-size: 16px; font-weight: 500; color: #202124; margin: 0;">案例資訊</h2>
             </div>
-            <h2 class="text-[14px] font-semibold text-gray-700">案例資訊</h2>
-        </div>
 
-        <div id="fieldsContainer" class="space-y-0.5">
-            {% set fields = [
-                ('date', 'Date', 'event', case.date),
-                ('customer', 'Customer', 'business', case.customer),
-                ('device', 'Device', 'memory', case.device),
-                ('model', 'Model', 'label', case.model),
-                ('defect_mode', 'Defect Mode', 'report_problem', case.defect_mode),
-                ('defect_rate_raw', 'Defect Rate', 'percent', case.defect_rate_raw),
-                ('defect_lots', 'Defect Lots', 'inventory', case.defect_lots|join(', ') if case.defect_lots else ''),
-                ('fab_assembly', 'FAB/Assembly', 'factory', case.fab_assembly),
-                ('fa_status', 'FA Status', 'flag', case.fa_status),
-                ('follow_up', 'Follow Up', 'update', case.follow_up),
-            ] %}
+            <div id="fieldsContainer">
+                {% set fields = [
+                    ('date', 'Date', 'event', case.date),
+                    ('customer', 'Customer', 'business', case.customer),
+                    ('device', 'Device', 'memory', case.device),
+                    ('model', 'Model', 'label', case.model),
+                    ('defect_mode', 'Defect Mode', 'report_problem', case.defect_mode),
+                    ('defect_rate_raw', 'Defect Rate', 'percent', case.defect_rate_raw),
+                    ('defect_lots', 'Defect Lots', 'inventory', case.defect_lots|join(', ') if case.defect_lots else ''),
+                    ('fab_assembly', 'FAB/Assembly', 'factory', case.fab_assembly),
+                    ('fa_status', 'FA Status', 'flag', case.fa_status),
+                    ('follow_up', 'Follow Up', 'update', case.follow_up),
+                ] %}
 
-            {% for key, label, icon, value in fields %}
-            <div class="flex items-start gap-3 py-2.5 border-b border-surface-muted/50 last:border-0 group/field">
-                <span class="material-icons-outlined text-gray-300 text-[15px] mt-1 group-hover/field:text-accent/40 transition-colors">{{ icon }}</span>
-                <div class="flex-1 min-w-0">
-                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block font-mono">{{ label }}</span>
-                    <span class="text-[13px] text-gray-800 field-display mt-0.5 block font-medium" data-field="{{ key }}">{{ value or '—' }}</span>
-                    <input type="text" class="hidden field-edit text-[13px] input-field rounded-lg px-3 py-1.5 w-full mt-1"
-                        data-field="{{ key }}" value="{{ value or '' }}">
+                {% for key, label, icon, value in fields %}
+                <div style="display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f3f4;">
+                    <span class="material-icons-outlined" style="font-size: 16px; color: #9aa0a6; margin-top: 2px;">{{ icon }}</span>
+                    <div style="flex: 1; min-width: 0;">
+                        <span style="display: block; font-size: 11px; font-weight: 600; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px;">{{ label }}</span>
+                        <span class="field-display" data-field="{{ key }}" style="display: block; font-size: 14px; color: #202124; margin-top: 2px;">{{ value or '—' }}</span>
+                        <input type="text" class="field-edit input-field" data-field="{{ key }}" value="{{ value or '' }}"
+                            style="display: none; width: 100%; margin-top: 4px;">
+                    </div>
                 </div>
+                {% endfor %}
             </div>
-            {% endfor %}
-        </div>
 
-        <div id="editActions" class="hidden mt-6 flex gap-2">
-            <button onclick="saveEdit()"
-                class="bg-gradient-to-r from-accent to-accent-light text-white px-5 py-2 rounded-xl text-[13px] font-semibold hover:shadow-lg hover:shadow-accent/15 transition-all duration-300">
-                儲存
-            </button>
-            <button onclick="toggleEdit()"
-                class="border border-surface-muted px-5 py-2 rounded-xl text-[13px] text-gray-500 font-medium hover:bg-surface transition-all duration-200">
-                取消
-            </button>
+            <div id="editActions" style="display: none; margin-top: 20px; display: none; gap: 8px;">
+                <button onclick="saveEdit()" class="btn btn-primary">儲存</button>
+                <button onclick="toggleEdit()" class="btn btn-outline">取消</button>
+            </div>
         </div>
     </div>
 </div>
@@ -105,12 +90,13 @@
 
     function toggleEdit() {
         editing = !editing;
-        document.querySelectorAll('.field-display').forEach(el => el.classList.toggle('hidden', editing));
-        document.querySelectorAll('.field-edit').forEach(el => el.classList.toggle('hidden', !editing));
-        document.getElementById('editActions').classList.toggle('hidden', !editing);
+        document.querySelectorAll('.field-display').forEach(el => el.style.display = editing ? 'none' : 'block');
+        document.querySelectorAll('.field-edit').forEach(el => el.style.display = editing ? 'block' : 'none');
+        const actions = document.getElementById('editActions');
+        actions.style.display = editing ? 'flex' : 'none';
         document.getElementById('editBtn').innerHTML = editing
-            ? '<span class="material-icons-outlined text-[16px]">close</span>取消'
-            : '<span class="material-icons-outlined text-[16px]">edit</span>編輯';
+            ? '<span class="material-icons-outlined" style="font-size: 16px;">close</span> 取消'
+            : '<span class="material-icons-outlined" style="font-size: 16px;">edit</span> 編輯';
     }
 
     async function saveEdit() {

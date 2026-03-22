@@ -2,36 +2,124 @@
 {% block title %}首頁 — QVault{% endblock %}
 
 {% block content %}
-<!-- Welcome header -->
-<div class="mb-10">
-    <h1 class="text-[28px] font-bold text-[#1f1f1f] tracking-tight">歡迎回來</h1>
-    <p class="text-[14px] text-[#5f6368] mt-1">FA 案例管理平台</p>
+<div style="padding: 24px 0 32px;">
+    <h1 style="font-size: 26px; font-weight: 400; color: #202124; margin: 0 0 2px;">歡迎回來{% if user %}, {{ user.employee_name }}{% endif %}</h1>
+    <p style="font-size: 14px; color: #80868b; letter-spacing: 0.1px; margin: 0;">FA 案例管理平台 — 從 PowerPoint 周報自動提取失效分析案例</p>
 </div>
 
-<!-- Quick action cards — Google Workspace style -->
-<div class="grid grid-cols-3 gap-4">
-    <a href="/upload" class="group card bg-white rounded-xl p-6 block">
-        <div class="w-12 h-12 rounded-full bg-[#e8f0fe] flex items-center justify-center mb-4 group-hover:bg-[#d2e3fc] transition-colors">
-            <span class="material-icons-outlined text-accent text-[24px]">cloud_upload</span>
-        </div>
-        <h2 class="text-[15px] font-semibold text-[#1f1f1f] mb-1 group-hover:text-accent transition-colors">上傳周報</h2>
-        <p class="text-[13px] text-[#5f6368] leading-relaxed">上傳 .pptx 周報檔案，系統自動分類並提取案例資料</p>
-    </a>
+<!-- Value proposition -->
+<div class="value-cards" style="margin-bottom: 32px;">
+    <div class="value-card stagger-in" style="animation-delay: 0.02s">
+        <span class="material-icons-outlined" style="font-size: 28px; color: #d93025; margin-bottom: 12px; display: block;">report_problem</span>
+        <h3 style="font-size: 15px; font-weight: 500; color: #202124; margin: 0 0 8px;">問題</h3>
+        <p style="font-size: 13px; color: #5f6368; line-height: 1.6; margin: 0;">FA 案例散落在每周 PowerPoint 報告中，人工逐頁閱讀耗時且容易遺漏重要案例。</p>
+    </div>
+    <div class="value-card stagger-in" style="animation-delay: 0.06s">
+        <span class="material-icons-outlined" style="font-size: 28px; color: #1a73e8; margin-bottom: 12px; display: block;">auto_fix_high</span>
+        <h3 style="font-size: 15px; font-weight: 500; color: #202124; margin: 0 0 8px;">解決方案</h3>
+        <p style="font-size: 13px; color: #5f6368; line-height: 1.6; margin: 0;">上傳 PPTX 周報，系統利用 VLM 自動分類投影片並提取 10 個結構化欄位，結果可人工審核修正。</p>
+    </div>
+    <div class="value-card stagger-in" style="animation-delay: 0.10s">
+        <span class="material-icons-outlined" style="font-size: 28px; color: #0d652d; margin-bottom: 12px; display: block;">trending_up</span>
+        <h3 style="font-size: 15px; font-weight: 500; color: #202124; margin: 0 0 8px;">成效</h3>
+        <p style="font-size: 13px; color: #5f6368; line-height: 1.6; margin: 0;">所有案例集中管理、可搜尋，每週自動生成 AI 摘要，讓團隊快速掌握 FA 現況。</p>
+    </div>
+</div>
 
-    <a href="/weeks" class="group card bg-white rounded-xl p-6 block">
-        <div class="w-12 h-12 rounded-full bg-[#e6f4ea] flex items-center justify-center mb-4 group-hover:bg-[#ceead6] transition-colors">
-            <span class="material-icons-outlined text-teal text-[24px]">folder_open</span>
-        </div>
-        <h2 class="text-[15px] font-semibold text-[#1f1f1f] mb-1 group-hover:text-teal transition-colors">週報總覽</h2>
-        <p class="text-[13px] text-[#5f6368] leading-relaxed">瀏覽每週報告的處理狀態、案例統計與提取進度</p>
-    </a>
+<!-- Workflow sections -->
+<h2 class="section-title" style="animation: fadeSlideUp 0.4s ease both; animation-delay: 0.14s">開始使用</h2>
 
-    <a href="/cases" class="group card bg-white rounded-xl p-6 block">
-        <div class="w-12 h-12 rounded-full bg-[#fef7e0] flex items-center justify-center mb-4 group-hover:bg-[#feefc3] transition-colors">
-            <span class="material-icons-outlined text-[#ea8600] text-[24px]">table_chart</span>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+    <!-- Upload lane -->
+    <div class="workflow-card" style="animation-delay: 0.18s">
+        <div class="workflow-header">
+            <div class="workflow-icon" style="background: #1a73e8;">
+                <span class="material-icons-outlined">cloud_upload</span>
+            </div>
+            <div>
+                <h2 style="margin: 0 0 2px;">上傳周報</h2>
+                <p style="margin: 0;">上傳 .pptx 周報，自動分類並提取案例</p>
+            </div>
         </div>
-        <h2 class="text-[15px] font-semibold text-[#1f1f1f] mb-1 group-hover:text-[#ea8600] transition-colors">案例管理</h2>
-        <p class="text-[13px] text-[#5f6368] leading-relaxed">搜尋、編輯與管理所有失效分析案例，支援直接表格編輯</p>
+        <div class="workflow-actions">
+            <a href="/upload" class="workflow-btn workflow-btn--primary-blue">
+                <span class="material-icons-outlined">upload_file</span>
+                上傳檔案
+            </a>
+        </div>
+    </div>
+
+    <!-- Cases lane -->
+    <div class="workflow-card" style="animation-delay: 0.24s">
+        <div class="workflow-header">
+            <div class="workflow-icon" style="background: #0d652d;">
+                <span class="material-icons-outlined">table_chart</span>
+            </div>
+            <div>
+                <h2 style="margin: 0 0 2px;">案例管理</h2>
+                <p style="margin: 0;">搜尋、編輯與管理所有 FA 案例</p>
+            </div>
+        </div>
+        <div class="workflow-actions">
+            <a href="/cases" class="workflow-btn workflow-btn--primary-green">
+                <span class="material-icons-outlined">list_alt</span>
+                瀏覽案例
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Weeks overview banner -->
+<div class="workflow-card" style="animation-delay: 0.30s; display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 16px;">
+        <div class="workflow-icon" style="background: #e37400;">
+            <span class="material-icons-outlined">folder</span>
+        </div>
+        <div>
+            <h2 style="font-size: 16px; font-weight: 500; color: #202124; margin: 0 0 1px;">週報總覽</h2>
+            <p style="font-size: 13px; color: #5f6368; margin: 0;">瀏覽每週報告的處理狀態、案例統計與提取進度</p>
+        </div>
+    </div>
+    <a href="/weeks" class="workflow-btn" style="background: #fef7e0; color: #ea8600;">
+        <span class="material-icons-outlined">arrow_forward</span>
+        查看總覽
     </a>
+</div>
+
+<!-- How It Works -->
+<h2 class="section-title" style="margin-top: 32px; animation: fadeSlideUp 0.4s ease both; animation-delay: 0.36s">處理流程</h2>
+
+<div class="workflow-card" style="animation-delay: 0.40s; display: flex; align-items: flex-start; gap: 0; padding: 28px 32px;">
+    <div style="flex: 1; display: flex; align-items: flex-start; gap: 14px;">
+        <div style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: #e8f0fe; color: #1967d2; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center;">1</div>
+        <div>
+            <h4 style="font-size: 14px; font-weight: 500; color: #202124; margin: 0 0 4px;">上傳周報</h4>
+            <p style="font-size: 12px; color: #5f6368; line-height: 1.5; margin: 0;">上傳 .pptx 檔案，系統轉換為圖片後由 VLM 自動分類</p>
+        </div>
+    </div>
+    <div style="flex-shrink: 0; width: 32px; height: 2px; background: #dadce0; margin-top: 15px;"></div>
+    <div style="flex: 1; display: flex; align-items: flex-start; gap: 14px;">
+        <div style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: #e8f0fe; color: #1967d2; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center;">2</div>
+        <div>
+            <h4 style="font-size: 14px; font-weight: 500; color: #202124; margin: 0 0 4px;">分類確認</h4>
+            <p style="font-size: 12px; color: #5f6368; line-height: 1.5; margin: 0;">檢視 VLM 分類結果，修正錯誤判斷後開始提取</p>
+        </div>
+    </div>
+    <div style="flex-shrink: 0; width: 32px; height: 2px; background: #dadce0; margin-top: 15px;"></div>
+    <div style="flex: 1; display: flex; align-items: flex-start; gap: 14px;">
+        <div style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: #e8f0fe; color: #1967d2; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center;">3</div>
+        <div>
+            <h4 style="font-size: 14px; font-weight: 500; color: #202124; margin: 0 0 4px;">審核提取結果</h4>
+            <p style="font-size: 12px; color: #5f6368; line-height: 1.5; margin: 0;">逐頁審核並修正 VLM 提取的 10 個結構化欄位</p>
+        </div>
+    </div>
+    <div style="flex-shrink: 0; width: 32px; height: 2px; background: #dadce0; margin-top: 15px;"></div>
+    <div style="flex: 1; display: flex; align-items: flex-start; gap: 14px;">
+        <div style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: #e8f0fe; color: #1967d2; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center;">4</div>
+        <div>
+            <h4 style="font-size: 14px; font-weight: 500; color: #202124; margin: 0 0 4px;">確認儲存</h4>
+            <p style="font-size: 12px; color: #5f6368; line-height: 1.5; margin: 0;">案例存入資料庫，自動產生 embedding 與 AI 周摘要</p>
+        </div>
+    </div>
 </div>
 {% endblock %}

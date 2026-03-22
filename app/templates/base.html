@@ -7,55 +7,274 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js" integrity="sha384-fw+eTlCc7suMV/1w/7fr2/PmwElUIt5i82bi+qTiLXvjRXZ2/FkiTNA/w0MhXnGI" crossorigin="anonymous"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
-                        mono: ['"JetBrains Mono"', 'monospace'],
-                    },
-                    colors: {
-                        accent: { DEFAULT: '#1a73e8', light: '#4285f4', soft: '#8ab4f8', dim: 'rgba(26,115,232,0.08)' },
-                        teal: { DEFAULT: '#1e8e3e', light: '#34a853', dim: 'rgba(30,142,62,0.08)' },
-                        surface: { DEFAULT: '#f8f9fa', card: '#ffffff', muted: '#dadce0', deep: '#e8eaed' },
-                    },
-                },
-            },
-        }
-    </script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
     <style>
-        [x-cloak] { display: none !important; }
-        body { font-family: 'DM Sans', system-ui, sans-serif; }
-
-        /* ── Navigation ── */
-        .nav-link {
-            transition: background-color 0.15s ease;
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Google Sans', 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+            color: #202124;
+            line-height: 1.6;
+            margin: 0;
         }
-        .nav-link:hover { background-color: #e8eaed; }
-        .nav-link.active {
-            background-color: #c2e7ff;
-            color: #001d35;
-            font-weight: 600;
+
+        /* ── Top bar (Google Drive style) ── */
+        .topbar {
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 0 20px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .topbar-icon { font-size: 28px; color: #5f6368; }
+        .topbar-title {
+            font-size: 22px;
+            font-weight: 400;
+            color: #5f6368;
+            letter-spacing: -0.2px;
+        }
+        .topbar-nav {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .topbar-link {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 24px;
+            text-decoration: none;
+            color: #5f6368;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.15s, color 0.15s;
+        }
+        .topbar-link:hover { background: #f1f3f4; color: #202124; }
+        .topbar-link.active { background: #e8f0fe; color: #1967d2; }
+        .topbar-link .material-icons-outlined { font-size: 20px; }
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .topbar-user {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            color: #5f6368;
+        }
+        .topbar-user .material-icons-outlined { font-size: 28px; color: #1a73e8; }
+        .topbar-logout {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            color: #5f6368;
+            text-decoration: none;
+            transition: background 0.15s;
+        }
+        .topbar-logout:hover { background: #f1f3f4; }
+        .topbar-logout .material-icons-outlined { font-size: 20px; }
+
+        /* ── Container ── */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px;
         }
 
         /* ── Cards ── */
         .card {
-            transition: box-shadow 0.2s ease, border-color 0.15s ease;
-            border: 1px solid #dadce0;
-            border-radius: 8px;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 14px;
+            padding: 24px;
+            transition: box-shadow 0.25s, border-color 0.25s;
         }
         .card:hover {
-            box-shadow: 0 1px 3px 0 rgba(60,64,67,.3), 0 4px 8px 3px rgba(60,64,67,.15);
-            border-color: transparent;
+            box-shadow: 0 2px 12px rgba(32, 33, 36, 0.1);
+            border-color: #d2d2d2;
         }
 
-        /* ── Staggered animation ── */
-        .stagger-in { animation: staggerFadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) both; }
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 24px;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 500;
+            font-family: inherit;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            transition: box-shadow 0.15s, background 0.15s;
+        }
+        .btn-primary { background: #1a73e8; color: #fff; }
+        .btn-primary:hover { background: #1765cc; box-shadow: 0 1px 3px rgba(26,115,232,0.4); }
+        .btn-success { background: #1e8e3e; color: #fff; }
+        .btn-success:hover { background: #188038; box-shadow: 0 1px 3px rgba(30,142,62,0.4); }
+        .btn-outline { background: #fff; border: 1px solid #dadce0; color: #3c4043; }
+        .btn-outline:hover { background: #f8f9fa; border-color: #d2d2d2; }
+        .btn-danger { background: #d93025; color: #fff; }
+        .btn-danger:hover { background: #c5221f; box-shadow: 0 1px 3px rgba(217,48,37,0.4); }
+
+        /* ── Page header ── */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .page-header h1 {
+            font-size: 22px;
+            font-weight: 400;
+            color: #202124;
+        }
+        .page-header-actions { display: flex; gap: 8px; }
+
+        /* ── Tables ── */
+        .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .data-table th, .data-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .data-table th {
+            background: #f8f9fa;
+            font-weight: 500;
+            color: #5f6368;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .data-table tr:hover { background: #f8f9fa; }
+
+        /* ── Upload area ── */
+        .upload-area {
+            border: 2px dashed #dadce0;
+            border-radius: 12px;
+            padding: 48px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .upload-area:hover { border-color: #1a73e8; background: #f8f9fa; }
+        .upload-area.dragover { border-color: #1a73e8; background: #e8f0fe; }
+
+        /* ── Alerts ── */
+        .alert { padding: 14px 20px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
+        .alert-info { background: #e8f0fe; color: #1967d2; border: 1px solid #d2e3fc; }
+        .alert-warning { background: #fef7e0; color: #ea8600; border: 1px solid #feefc3; }
+        .alert-error { background: #fce8e6; color: #c5221f; border: 1px solid #fad2cf; }
+        .alert-success { background: #e6f4ea; color: #137333; border: 1px solid #ceead6; }
+
+        /* ── Workflow cards ── */
+        .workflow-card {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 14px;
+            padding: 28px;
+            transition: box-shadow 0.25s, border-color 0.25s;
+            animation: fadeSlideUp 0.4s ease both;
+        }
+        .workflow-card:hover {
+            box-shadow: 0 2px 12px rgba(32, 33, 36, 0.1);
+            border-color: #d2d2d2;
+        }
+        .workflow-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .workflow-header h2 {
+            font-size: 18px;
+            font-weight: 500;
+            color: #202124;
+            margin-bottom: 2px;
+        }
+        .workflow-header p { font-size: 13px; color: #5f6368; }
+        .workflow-icon {
+            flex-shrink: 0;
+            width: 48px; height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .workflow-icon .material-icons-outlined { font-size: 26px; color: #fff; }
+        .workflow-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .workflow-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            font-family: inherit;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+        }
+        .workflow-btn:active { transform: scale(0.97); }
+        .workflow-btn .material-icons-outlined { font-size: 18px; }
+        .workflow-btn--primary-blue { background: #e8f0fe; color: #1967d2; }
+        .workflow-btn--primary-blue:hover { background: #d2e3fc; }
+        .workflow-btn--primary-green { background: #e6f4ea; color: #137333; }
+        .workflow-btn--primary-green:hover { background: #ceead6; }
+        .workflow-btn--secondary { background: #f1f3f4; color: #3c4043; }
+        .workflow-btn--secondary:hover { background: #e8eaed; }
+        .workflow-btn--ghost { background: transparent; color: #5f6368; }
+        .workflow-btn--ghost:hover { background: #f1f3f4; }
+
+        /* ── Value cards ── */
+        .value-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .value-card {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 14px;
+            padding: 24px;
+            transition: box-shadow 0.25s;
+        }
+        .value-card:hover { box-shadow: 0 2px 12px rgba(32, 33, 36, 0.08); }
+
+        /* ── Section title ── */
+        .section-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #80868b;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 14px;
+        }
+
+        /* ── Entrance animation ── */
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Staggered animation (for grids) ── */
+        .stagger-in { animation: fadeSlideUp 0.4s ease both; }
         .stagger-in:nth-child(1) { animation-delay: 0.02s; }
         .stagger-in:nth-child(2) { animation-delay: 0.06s; }
         .stagger-in:nth-child(3) { animation-delay: 0.10s; }
@@ -67,34 +286,51 @@
         .stagger-in:nth-child(9) { animation-delay: 0.34s; }
         .stagger-in:nth-child(10) { animation-delay: 0.38s; }
 
-        @keyframes staggerFadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
+        /* ── Spinner ── */
+        .spinner {
+            width: 32px; height: 32px;
+            border: 3px solid #e0e0e0;
+            border-top-color: #1a73e8;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            flex-shrink: 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Modal ── */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.4);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 200;
+        }
+        .modal-card {
+            background: #fff;
+            border-radius: 14px;
+            padding: 28px 32px;
+            width: 480px;
+            max-width: 90vw;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
         }
 
-        .fade-in {
-            animation: pageFadeIn 0.3s ease both;
+        /* ── Badge ── */
+        .badge {
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.03em;
+            padding: 3px 10px;
+            border-radius: 9999px;
         }
-        @keyframes pageFadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        /* ── Scrollbar ── */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #bdc1c6; }
-
-        /* ── Glow dot ── */
-        .glow-dot { box-shadow: 0 0 5px currentColor, 0 0 10px currentColor; }
 
         /* ── Input field ── */
         .input-field {
             transition: border-color 0.15s ease, box-shadow 0.15s ease;
             border: 1px solid #dadce0;
-            border-radius: 4px;
+            border-radius: 8px;
             background: #fff;
+            font-family: inherit;
+            font-size: 14px;
+            padding: 8px 12px;
         }
         .input-field:focus {
             border-color: #1a73e8;
@@ -102,99 +338,74 @@
             outline: none;
         }
 
-        /* ── Badge ── */
-        .badge {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 10px;
-            font-weight: 500;
-            letter-spacing: 0.02em;
-            padding: 3px 10px;
-            border-radius: 9999px;
-        }
+        /* ── Glow dot ── */
+        .glow-dot { box-shadow: 0 0 5px currentColor, 0 0 10px currentColor; }
 
-        /* ── Google Drive "New" button ── */
-        .btn-new {
-            box-shadow: 0 1px 2px 0 rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15);
-            transition: box-shadow 0.2s ease;
-        }
-        .btn-new:hover {
-            box-shadow: 0 1px 3px 0 rgba(60,64,67,.3), 0 4px 8px 3px rgba(60,64,67,.15);
-        }
+        /* ── Data value ── */
+        .data-value { font-weight: 500; }
 
-        /* ── Data value mono ── */
-        .data-value {
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 600;
+        /* ── Delete icon button ── */
+        .btn-icon-delete {
+            display: flex; align-items: center; justify-content: center;
+            width: 32px; height: 32px;
+            border-radius: 50%; border: none;
+            background: transparent; color: #5f6368;
+            cursor: pointer; transition: background 0.15s, color 0.15s;
+        }
+        .btn-icon-delete:hover { background: #fce8e6; color: #d93025; }
+        .btn-icon-delete .material-icons-outlined { font-size: 18px; }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #bdc1c6; }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .topbar-nav { display: none; }
+            .value-cards { grid-template-columns: 1fr; }
         }
     </style>
     {% block head %}{% endblock %}
 </head>
-<body class="bg-[#f8f9fa] min-h-screen flex">
-    <!-- ═══ Sidebar ═══ -->
-    <aside class="w-[256px] bg-white flex flex-col fixed h-full z-30 border-r border-[#dadce0]">
-        <!-- Logo -->
-        <div class="px-5 py-4 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-accent flex items-center justify-center shadow-sm">
-                <span class="text-white text-[18px] font-bold font-mono">Q</span>
-            </div>
-            <div>
-                <div class="text-[16px] font-bold text-[#1f1f1f] tracking-tight leading-tight">QVault</div>
-                <div class="text-[10px] text-[#5f6368] font-medium tracking-wider uppercase font-mono">FA Cases</div>
-            </div>
+<body>
+    <header class="topbar">
+        <div class="topbar-left">
+            <span class="material-icons-outlined topbar-icon">science</span>
+            <span class="topbar-title">QVault</span>
         </div>
-
-        <!-- Upload button (Google Drive "New" style) -->
-        {% if "write" in scopes|default([]) %}
-        <div class="px-3 pt-2 pb-4">
-            <a href="/upload" class="btn-new inline-flex items-center gap-3 px-6 py-3 bg-white rounded-2xl">
-                <span class="material-icons-outlined text-[24px] text-accent">add</span>
-                <span class="text-[14px] font-medium text-[#3c4043]">上傳周報</span>
+        <nav class="topbar-nav">
+            <a href="/" class="topbar-link {% if request.url.path == '/' %}active{% endif %}">
+                <span class="material-icons-outlined">home</span> 首頁
             </a>
-        </div>
-        {% endif %}
-
-        <!-- Navigation -->
-        <nav class="flex-1 py-1 space-y-0.5">
-            <a href="/" class="nav-link flex items-center gap-3 mx-3 px-3 py-[6px] rounded-full text-[14px] font-medium text-[#444746]
-                {% if request.url.path == '/' %}active{% endif %}">
-                <span class="material-icons-outlined text-[20px]">home</span>
-                <span>首頁</span>
+            {% if "write" in scopes|default([]) %}
+            <a href="/upload" class="topbar-link {% if request.url.path == '/upload' %}active{% endif %}">
+                <span class="material-icons-outlined">cloud_upload</span> 上傳周報
             </a>
-            <a href="/weeks" class="nav-link flex items-center gap-3 mx-3 px-3 py-[6px] rounded-full text-[14px] font-medium text-[#444746]
-                {% if request.url.path.startswith('/weeks') %}active{% endif %}">
-                <span class="material-icons-outlined text-[20px]">folder</span>
-                <span>週報總覽</span>
+            {% endif %}
+            <a href="/weeks" class="topbar-link {% if request.url.path.startswith('/weeks') %}active{% endif %}">
+                <span class="material-icons-outlined">folder</span> 週報總覽
             </a>
-            <a href="/cases" class="nav-link flex items-center gap-3 mx-3 px-3 py-[6px] rounded-full text-[14px] font-medium text-[#444746]
-                {% if request.url.path.startswith('/cases') %}active{% endif %}">
-                <span class="material-icons-outlined text-[20px]">table_chart</span>
-                <span>案例管理</span>
+            <a href="/cases" class="topbar-link {% if request.url.path.startswith('/cases') %}active{% endif %}">
+                <span class="material-icons-outlined">table_chart</span> 案例管理
             </a>
         </nav>
-
-        <!-- User -->
-        <div class="px-4 py-3 border-t border-[#e8eaed]">
+        <div class="topbar-right">
             {% if user %}
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2.5">
-                    <div class="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
-                        <span class="text-[13px] font-semibold text-white">{{ user.employee_name[:1]|upper }}</span>
-                    </div>
-                    <span class="text-[13px] text-[#5f6368] font-medium">{{ user.employee_name }}</span>
-                </div>
-                <a href="/oauth2/sign_out" class="text-[#5f6368] hover:text-red-500 transition-colors duration-200" title="登出">
-                    <span class="material-icons-outlined text-[20px]">logout</span>
-                </a>
-            </div>
+            <span class="topbar-user">
+                <span class="material-icons-outlined">account_circle</span>
+                {{ user.employee_name }}
+            </span>
+            <a href="/oauth2/sign_out" class="topbar-logout" title="登出">
+                <span class="material-icons-outlined">logout</span>
+            </a>
             {% endif %}
         </div>
-    </aside>
+    </header>
 
-    <!-- ═══ Main content ═══ -->
-    <main class="ml-[256px] flex-1 min-h-screen">
-        <div class="{% block content_width %}max-w-[1080px]{% endblock %} mx-auto px-10 py-8 fade-in">
-            {% block content %}{% endblock %}
-        </div>
+    <main class="container" style="{% block container_style %}{% endblock %}">
+        {% block content %}{% endblock %}
     </main>
 
     {% block scripts %}{% endblock %}

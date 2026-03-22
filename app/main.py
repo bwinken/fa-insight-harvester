@@ -48,6 +48,11 @@ def _cleanup_stale_files() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # --- Startup ---
+    if settings.mock_data:
+        logger.info("MOCK_DATA mode — skipping DB/VLM initialization")
+        yield
+        return
+
     # Database
     engine = create_async_engine(
         settings.database_url,
@@ -163,24 +168,43 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 uploads_dir = settings.upload_path
 
 
-@app.get("/uploads/{file_path:path}")
-async def serve_upload(
-    file_path: str,
-    user: FAUser = Security(get_web_user, scopes=["read"]),
-):
-    full_path = (uploads_dir / file_path).resolve()
-    if not full_path.is_relative_to(uploads_dir.resolve()):
-        raise HTTPException(status_code=404, detail="Not found")
-    if not full_path.is_file():
-        raise HTTPException(status_code=404, detail="Not found")
-    return FileResponse(full_path)
+if settings.mock_data:
+
+    @app.get("/uploads/{file_path:path}")
+    async def serve_upload_mock(file_path: str):
+        full_path = (uploads_dir / file_path).resolve()
+        if not full_path.is_relative_to(uploads_dir.resolve()):
+            raise HTTPException(status_code=404, detail="Not found")
+        if not full_path.is_file():
+            raise HTTPException(status_code=404, detail="Not found")
+        return FileResponse(full_path)
+
+else:
+
+    @app.get("/uploads/{file_path:path}")
+    async def serve_upload(
+        file_path: str,
+        user: FAUser = Security(get_web_user, scopes=["read"]),
+    ):
+        full_path = (uploads_dir / file_path).resolve()
+        if not full_path.is_relative_to(uploads_dir.resolve()):
+            raise HTTPException(status_code=404, detail="Not found")
+        if not full_path.is_file():
+            raise HTTPException(status_code=404, detail="Not found")
+        return FileResponse(full_path)
 
 
 # Routers
-app.include_router(upload.router)
-app.include_router(triage.router)
-app.include_router(cases.router)
-app.include_router(pages.router)
+if settings.mock_data:
+    from app.routers import mock
+
+    app.include_router(mock.router)
+    logger.info("MOCK_DATA mode — using mock routes (no DB/VLM required)")
+else:
+    app.include_router(upload.router)
+    app.include_router(triage.router)
+    app.include_router(cases.router)
+    app.include_router(pages.router)
 
 
 @app.get("/health")
