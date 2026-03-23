@@ -17,7 +17,14 @@ App 以 Python venv 跑在主機上（systemd 管理），PG + oauth2-proxy 用 
 
 ### 設定檔結構
 
-所有設定集中在 **一個 `.env` 檔** (`~/opt/qvault/.env`)，由 App、Docker Compose、systemd 共用：
+設定分為 **兩個 `.env` 檔**，各司其職：
+
+| 檔案 | 用途 | 使用者 |
+|------|------|--------|
+| `~/opt/qvault/.env` | App 設定（DB 連線、VLM、Auth） | FastAPI + systemd |
+| `~/opt/qvault/deploy/.env` | Docker 服務設定（PG 初始化、OIDC） | docker-compose |
+
+共用變數（`DATA_DIR`、`PG_*`）需在兩個檔案中保持一致。`setup.sh` 會自動產生兩份。
 
 ```
 DATA_DIR=/mnt/db/qvault          ← 設定一次，以下自動衍生
@@ -81,7 +88,7 @@ git clone <repo-url> qvault && cd qvault
 bash deploy/setup.sh
 ```
 
-腳本會互動式引導：前置檢查 → 同步程式碼 → 建立 `.env`（統一設定檔） → 資料目錄 → 公鑰 → Docker 服務 → Python 依賴 → DB 遷移 → systemd → Nginx
+腳本會互動式引導：前置檢查 → 同步程式碼 → 建立設定檔（App `.env` + Docker `deploy/.env`） → 資料目錄 → 公鑰 → Docker 服務 → Python 依賴 → DB 遷移 → systemd → Nginx
 
 ## 手動部署
 
@@ -92,11 +99,17 @@ bash deploy/setup.sh
 
 ```bash
 cd ~/opt/qvault
+
+# App 設定（FastAPI + systemd）
 cp .env.example .env
-# 編輯 .env — 只需填入：
-#   DATA_DIR, PG_PASSWORD, VLM_BASE_URL, VLM_MODEL,
-#   OIDC_ISSUER_URL, OAUTH2_CLIENT_SECRET, OAUTH2_REDIRECT_URL
+# 編輯 .env — 填入：DATA_DIR, PG_PASSWORD, VLM_BASE_URL, VLM_MODEL
 chmod 600 .env
+
+# Docker 服務設定（PostgreSQL + oauth2-proxy）
+cp deploy/.env.example deploy/.env
+# 編輯 deploy/.env — 填入：PG_PASSWORD, OIDC_ISSUER_URL, OAUTH2_CLIENT_SECRET, OAUTH2_REDIRECT_URL
+# 注意：PG_* 和 DATA_DIR 須與 .env 一致
+chmod 600 deploy/.env
 ```
 
 ### 資料目錄
@@ -111,7 +124,7 @@ cp /path/to/public.pem /mnt/db/qvault/keys/public.pem
 
 ```bash
 cd deploy/
-# docker-compose.yml 會自動讀取 ../.env
+# docker-compose.yml 讀取 deploy/.env
 docker compose up -d
 ```
 
@@ -168,9 +181,10 @@ systemctl --user restart qvault
 ~/opt/qvault/                     # 程式碼（setup.sh rsync 過來）
 ├── app/                          # 應用程式碼
 ├── .venv/                        # uv 管理的虛擬環境
-├── .env                          # 唯一設定檔（App + Docker 共用）
+├── .env                          # App 設定檔（FastAPI + systemd）
 ├── deploy/
-│   ├── docker-compose.yml        # PG + oauth2-proxy（讀取 ../.env）
+│   ├── .env                      # Docker 設定檔（PG + oauth2-proxy）
+│   ├── docker-compose.yml        # PG + oauth2-proxy（讀取 deploy/.env）
 │   ├── qvault.service            # systemd unit（讀取 ../.env）
 │   └── nginx.conf                # Nginx 模板
 └── alembic/                      # 資料庫遷移

@@ -3,7 +3,7 @@ services:
     image: pgvector/pgvector:pg16
     container_name: qvault-pg
     restart: unless-stopped
-    env_file: ../.env
+    env_file: .env
     ports:
       - "127.0.0.1:${PG_PORT:-5432}:5432"
     environment:
@@ -22,7 +22,7 @@ services:
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
     container_name: qvault-oauth2-proxy
     restart: unless-stopped
-    env_file: ../.env
+    env_file: .env
     ports:
       - "127.0.0.1:${OAUTH2_PROXY_PORT:-4180}:4180"
     environment:

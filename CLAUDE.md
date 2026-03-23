@@ -96,7 +96,11 @@ PostgreSQL-only — uses `pgvector` (Vector columns), `ARRAY(Text)`, and GIN ind
 
 ## Environment
 
-Single `.env` file (see `.env.example`) shared by App, Docker Compose, and systemd. Loaded by `pydantic-settings` in `app/core/config.py`. Set `DATA_DIR` once — `UPLOAD_DIR`, `LOG_DIR`, `AUTH_PUBLIC_KEY_PATH` are auto-derived. Set `PG_USER`/`PG_PASSWORD`/`PG_PORT`/`PG_DB` — `DATABASE_URL` is auto-derived. Individual vars can still be overridden explicitly.
+Two separate `.env` files:
+- **`.env`** (project root) — App config (FastAPI + systemd). Loaded by `pydantic-settings` in `app/core/config.py`. Contains DB connection, VLM, auth, and path settings.
+- **`deploy/.env`** — Docker services config (PostgreSQL + oauth2-proxy). Loaded by `docker-compose.yml`. Contains PG primitives, OIDC/OAuth2 settings.
+
+Shared vars (`DATA_DIR`, `PG_USER`, `PG_PASSWORD`, `PG_PORT`, `PG_DB`) must be kept in sync between both files. Set `DATA_DIR` once — `UPLOAD_DIR`, `LOG_DIR`, `AUTH_PUBLIC_KEY_PATH` are auto-derived. Set `PG_*` vars — `DATABASE_URL` is auto-derived. Individual vars can still be overridden explicitly.
 
 ## System dependencies
 
